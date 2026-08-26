@@ -1,0 +1,21 @@
+{
+  "name": "SCaD Residencial",
+  "short_name": "SCaD Residencial",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f3f6f8",
+  "theme_color": "#0f2f4f",
+  "description": "Sistema de información, coordinación y atención para residentes de fraccionamientos residenciales bajo el modelo SCaD.",
+  "icons": [
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
