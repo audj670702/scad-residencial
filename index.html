@@ -14,10 +14,18 @@
       <img src="assets/logo-scad-residencial.png" alt="SCaD Residencial" onerror="this.style.display='none';document.querySelector('.brand-fallback').style.display='block'" />
       <div class="brand-fallback">SCaD <span>Residencial</span></div>
     </div>
-    <button class="profile-btn" aria-label="Perfil">JR</button>
   </header>
 
   <main class="app-shell">
+    <section class="resident-card" aria-label="Identidad del residente">
+      <div class="resident-avatar" aria-hidden="true">NR</div>
+      <div class="resident-copy">
+        <span class="resident-label">Residente</span>
+        <strong class="resident-name">Nombre del residente</strong>
+      </div>
+      <button class="resident-action" aria-label="Abrir perfil">›</button>
+    </section>
+
     <section class="welcome-card">
       <div>
         <p class="eyebrow">SCaD RESIDENCIAL</p>
@@ -39,13 +47,13 @@
         <span>Acceso rápido</span>
       </div>
 
-      <div class="modules-grid">
-        <button class="module-card" data-module="mensajeria"><span class="module-icon">💬</span><span class="module-title">Mensajería</span><span class="module-desc">Comunicación y avisos</span></button>
-        <button class="module-card" data-module="orientacion"><span class="module-icon">🧭</span><span class="module-title">Orientación</span><span class="module-desc">Guías para residentes</span></button>
-        <button class="module-card" data-module="documentacion"><span class="module-icon">📄</span><span class="module-title">Documentación</span><span class="module-desc">Reglamentos y formatos</span></button>
-        <button class="module-card" data-module="programacion"><span class="module-icon">📅</span><span class="module-title">Programación</span><span class="module-desc">Eventos y actividades</span></button>
-        <button class="module-card featured" data-module="reportes"><span class="module-icon">🛠️</span><span class="module-title">Reportes</span><span class="module-desc">Notifica una situación</span></button>
-        <button class="module-card featured" data-module="visitantes"><span class="module-icon">👥</span><span class="module-title">Visitantes</span><span class="module-desc">Preautoriza accesos</span></button>
+      <div class="modules-list">
+        <button class="module-card" data-module="mensajeria"><span class="module-icon">💬</span><span class="module-copy"><span class="module-title">Mensajería</span><span class="module-desc">Comunicación y avisos</span></span><span class="module-arrow">›</span></button>
+        <button class="module-card" data-module="orientacion"><span class="module-icon">🧭</span><span class="module-copy"><span class="module-title">Orientación</span><span class="module-desc">Guías para residentes</span></span><span class="module-arrow">›</span></button>
+        <button class="module-card" data-module="documentacion"><span class="module-icon">📄</span><span class="module-copy"><span class="module-title">Documentación</span><span class="module-desc">Reglamentos y formatos</span></span><span class="module-arrow">›</span></button>
+        <button class="module-card" data-module="programacion"><span class="module-icon">📅</span><span class="module-copy"><span class="module-title">Programación</span><span class="module-desc">Eventos y actividades</span></span><span class="module-arrow">›</span></button>
+        <button class="module-card featured" data-module="reportes"><span class="module-icon">🛠️</span><span class="module-copy"><span class="module-title">Reportes</span><span class="module-desc">Notifica una situación</span></span><span class="module-arrow">›</span></button>
+        <button class="module-card featured" data-module="visitantes"><span class="module-icon">👥</span><span class="module-copy"><span class="module-title">Visitantes</span><span class="module-desc">Preautoriza accesos</span></span><span class="module-arrow">›</span></button>
       </div>
     </section>
 
