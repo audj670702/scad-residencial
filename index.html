@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0f2f4f" />
+  <title>SCaD Residencial</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="assets/logo-scad-residencial.png" alt="SCaD Residencial" onerror="this.style.display='none';document.querySelector('.brand-fallback').style.display='block'" />
+      <div class="brand-fallback">SCaD <span>Residencial</span></div>
+    </div>
+    <button class="profile-btn" aria-label="Perfil">JR</button>
+  </header>
+
+  <main class="app-shell">
+    <section class="welcome-card">
+      <div>
+        <p class="eyebrow">SCaD RESIDENCIAL</p>
+        <h1>Bienvenido</h1>
+        <p class="welcome-text">Información, coordinación y atención para tu residencial.</p>
+      </div>
+      <div class="home-mark" aria-hidden="true">⌂</div>
+    </section>
+
+    <section class="quick-status" aria-label="Resumen">
+      <article class="status-card"><span class="status-number">2</span><span class="status-label">Mensajes</span></article>
+      <article class="status-card"><span class="status-number">1</span><span class="status-label">Reporte abierto</span></article>
+      <article class="status-card"><span class="status-number">3</span><span class="status-label">Próximos eventos</span></article>
+    </section>
+
+    <section class="modules-section">
+      <div class="section-head">
+        <h2>Servicios</h2>
+        <span>Acceso rápido</span>
+      </div>
+
+      <div class="modules-grid">
+        <button class="module-card" data-module="mensajeria"><span class="module-icon">💬</span><span class="module-title">Mensajería</span><span class="module-desc">Comunicación y avisos</span></button>
+        <button class="module-card" data-module="orientacion"><span class="module-icon">🧭</span><span class="module-title">Orientación</span><span class="module-desc">Guías para residentes</span></button>
+        <button class="module-card" data-module="documentacion"><span class="module-icon">📄</span><span class="module-title">Documentación</span><span class="module-desc">Reglamentos y formatos</span></button>
+        <button class="module-card" data-module="programacion"><span class="module-icon">📅</span><span class="module-title">Programación</span><span class="module-desc">Eventos y actividades</span></button>
+        <button class="module-card featured" data-module="reportes"><span class="module-icon">🛠️</span><span class="module-title">Reportes</span><span class="module-desc">Notifica una situación</span></button>
+        <button class="module-card featured" data-module="visitantes"><span class="module-icon">👥</span><span class="module-title">Visitantes</span><span class="module-desc">Preautoriza accesos</span></button>
+      </div>
+    </section>
+
+    <section class="activity-card">
+      <div class="section-head"><h2>Actividad reciente</h2><button class="link-btn">Ver todo</button></div>
+      <div class="activity-item"><span class="dot"></span><div><strong>Mantenimiento programado</strong><p>Información de ejemplo para validar jerarquía visual.</p></div><time>Hoy</time></div>
+      <div class="activity-item"><span class="dot"></span><div><strong>Reporte recibido</strong><p>Estado visual de seguimiento del residente.</p></div><time>Ayer</time></div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Navegación principal">
+    <button class="nav-item active"><span>⌂</span><small>Inicio</small></button>
+    <button class="nav-item"><span>💬</span><small>Mensajes</small></button>
+    <button class="nav-item"><span>＋</span><small>Reporte</small></button>
+    <button class="nav-item"><span>👥</span><small>Visitantes</small></button>
+  </nav>
+
+  <div class="sheet" id="moduleSheet" aria-hidden="true">
+    <div class="sheet-panel">
+      <button class="sheet-close" id="sheetClose" aria-label="Cerrar">×</button>
+      <p class="eyebrow">SCaD RESIDENCIAL</p>
+      <h2 id="sheetTitle">Módulo</h2>
+      <p id="sheetText">Vista conceptual en construcción.</p>
+      <button class="primary-btn" id="sheetAction">Entendido</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
