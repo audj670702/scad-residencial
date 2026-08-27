@@ -1,0 +1,60 @@
+// SCaD Residencial — Backend Wix
+// Archivo destino en Wix: Backend > http-functions.js
+// v0.7
+
+import { ok, notFound } from 'wix-http-functions';
+import { members } from 'wix-members.v2';
+import wixData from 'wix-data';
+
+export async function get_resAuthorization(request) {
+  try {
+    const member = await members.getCurrentMember();
+    const memberId = member?._id || member?.id;
+
+    if (!memberId) {
+      return ok({
+        authorized: false,
+        reason: 'NO_AUTHENTICATED_MEMBER'
+      });
+    }
+
+    const result = await wixData
+      .query('RES_Usuarios')
+      .eq('memberId', memberId)
+      .limit(1)
+      .find({ suppressAuth: true });
+
+    const registro = result.items?.[0];
+
+    if (!registro) {
+      return ok({
+        authorized: false,
+        reason: 'MEMBER_NOT_IN_RES_USUARIOS'
+      });
+    }
+
+    if (registro.activo !== true) {
+      return ok({
+        authorized: false,
+        reason: 'USER_INACTIVE'
+      });
+    }
+
+    return ok({
+      authorized: true,
+      user: {
+        memberId: registro.memberId,
+        nombreCompleto: registro.nombreCompleto || '',
+        email: registro.email || '',
+        rolResidencial: registro.rolResidencial || '',
+        imagen: registro.imagen || null
+      }
+    });
+  } catch (error) {
+    console.error('SCaD Residencial get_resAuthorization:', error);
+    return notFound({
+      authorized: false,
+      reason: 'AUTHORIZATION_VALIDATION_ERROR'
+    });
+  }
+}
