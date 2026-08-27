@@ -5,7 +5,7 @@ const CLIENT_ID='2a7eb7cd-240a-422b-9fe2-10f5dec36b5e';
 const TOKENS_KEY='scad_residencial_wix_tokens';
 const stored=(()=>{try{return JSON.parse(localStorage.getItem(TOKENS_KEY)||'null')}catch{return null}})();
 const client=createClient({auth:OAuthStrategy({clientId:CLIENT_ID,...(stored?{tokens:stored}:{})}),modules:{functions}});
-const FN={users:'resAdminUsuarios',get:'resAdminModuloPermiso',set:'resAdminModuloPermisoActualizar'};
+const FN={users:'resAdminUsuarios',api:'resScadResidencial'};
 const $=id=>document.getElementById(id);
 let selectedUser=null,selectedIndex=-1;
 
@@ -19,6 +19,7 @@ document.head.appendChild(style);
 
 async function getFn(n){const r=await client.functions.get(n);return r.json()}
 async function postFn(n,p){const r=await client.functions.post(n,{headers:{'Content-Type':'application/json'},params:new URLSearchParams(),body:JSON.stringify(p)});return r.json()}
+async function api(action,payload={}){return postFn(FN.api,{action,...payload})}
 
 function ensureBlock(){
  if($('adminModulePermissionBlock'))return $('adminModulePermissionBlock');
@@ -30,11 +31,8 @@ function ensureBlock(){
 }
 
 async function resolveSelectedUser(index){
- try{
-  const d=await getFn(FN.users);
-  const users=Array.isArray(d?.users)?d.users:[];
-  return users[index]||null;
- }catch(e){console.error('SCaD Residencial permisos / usuarios:',e);return null}
+ try{const d=await getFn(FN.users);const users=Array.isArray(d?.users)?d.users:[];return users[index]||null}
+ catch(e){console.error('SCaD Residencial permisos / usuarios:',e);return null}
 }
 
 async function loadPermission(){
@@ -45,26 +43,25 @@ async function loadPermission(){
  try{
   const memberId=String(selectedUser.memberId||'').trim();
   const usuarioId=String(selectedUser.id||selectedUser._id||'').trim();
-  const d=await postFn(FN.get,{usuarioId,memberId,modulo:'CONTROL_ACCESOS'});
+  const d=await api('PERMISO_MODULO_CONSULTAR',{usuarioId,memberId,modulo:'CONTROL_ACCESOS'});
   if(!d?.ok)throw Error(d?.reason||'PERMISO_ERROR');
   toggle.checked=d.effective===true;
   toggle.disabled=d.inherited===true || !memberId;
-  if(!memberId){note.textContent='Este usuario todavía no tiene memberId disponible para asignación directa.'}
+  if(!memberId)note.textContent='Este usuario todavía no tiene memberId disponible para asignación directa.';
   else if(d.inherited===true){note.textContent=`Permiso heredado por rol: ${d.role||selectedUser.rolResidencial||'rol asignado'}.`;note.classList.add('inherited')}
-  else{note.textContent=d.direct===true?'Permiso asignado directamente a este usuario.':'Sin permiso directo. Administración puede activarlo para este usuario.'}
+  else note.textContent=d.direct===true?'Permiso asignado directamente a este usuario.':'Sin permiso directo. Administración puede activarlo para este usuario.';
   status.textContent='';
  }catch(e){console.error(e);toggle.disabled=true;status.textContent='No fue posible consultar el permiso.'}
 }
 
 async function savePermission(e){
  if(!selectedUser)return;
- const toggle=e.currentTarget,status=$('adminControlAccessStatus');
- const requested=toggle.checked;
+ const toggle=e.currentTarget,status=$('adminControlAccessStatus'),requested=toggle.checked;
  toggle.disabled=true;status.textContent=requested?'Activando permiso…':'Retirando permiso…';
  try{
   const memberId=String(selectedUser.memberId||'').trim();
   const usuarioId=String(selectedUser.id||selectedUser._id||'').trim();
-  const d=await postFn(FN.set,{usuarioId,memberId,modulo:'CONTROL_ACCESOS',activo:requested});
+  const d=await api('PERMISO_MODULO_ACTUALIZAR',{usuarioId,memberId,modulo:'CONTROL_ACCESOS',activo:requested});
   if(!d?.ok)throw Error(d?.reason||'PERMISO_UPDATE_ERROR');
   status.textContent=requested?'Permiso activado correctamente.':'Permiso retirado correctamente.';
   await loadPermission();
@@ -72,11 +69,8 @@ async function savePermission(e){
 }
 
 document.addEventListener('click',async e=>{
- const btn=e.target.closest?.('[data-user-index]');
- if(!btn)return;
- selectedIndex=Number(btn.dataset.userIndex);
- selectedUser=await resolveSelectedUser(selectedIndex);
- setTimeout(loadPermission,0);
+ const btn=e.target.closest?.('[data-user-index]');if(!btn)return;
+ selectedIndex=Number(btn.dataset.userIndex);selectedUser=await resolveSelectedUser(selectedIndex);setTimeout(loadPermission,0);
 },true);
 
 ensureBlock();
