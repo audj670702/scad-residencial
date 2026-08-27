@@ -9,7 +9,7 @@ const FN={list:'resAdminGrupos',save:'resAdminGrupoGuardar',state:'resAdminGrupo
 const $=id=>document.getElementById(id);
 let groups=[],activeGroup=null,allUsers=[],members=[];
 
-function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]))}
 function showOnly(view){['authView','appView','adminView','usersView','groupsView','documentsAdminView'].forEach(id=>{const el=$(id);if(el)el.hidden=el!==view})}
 async function getFn(name){const r=await client.functions.get(name);return r.json()}
 async function postFn(name,payload){const r=await client.functions.post(name,{headers:{'Content-Type':'application/json'},params:new URLSearchParams(),body:JSON.stringify(payload)});return r.json()}
@@ -42,3 +42,4 @@ async function toggleGroup(grupoId,activo){try{const d=await postFn(FN.state,{gr
 $('groupForm').addEventListener('submit',async e=>{e.preventDefault();const payload={grupoId:$('groupId').value.trim(),nombre:$('groupName').value.trim(),descripcion:$('groupDescription').value.trim()};if(!payload.nombre)return;message('Guardando…');$('groupSaveBtn').disabled=true;try{const d=await postFn(FN.save,payload);if(!d?.ok)throw Error(d?.reason||'ERROR');message('Grupo guardado.');await refreshGroups();if(!payload.grupoId&&d.grupo?.grupoId){$('groupSheet').classList.remove('open');await openGroup(d.grupo.grupoId)}}catch(e){console.error(e);message(String(e?.message||'').includes('LIMITE')?'Ya existen 5 grupos activos.':'No fue posible guardar el grupo.')}finally{$('groupSaveBtn').disabled=false}});
 $('groupUserSearch').addEventListener('input',renderUserResults);$('openGroupsBtn').addEventListener('click',loadGroups);$('groupsBack').addEventListener('click',()=>showOnly('adminView'));$('newGroupBtn').addEventListener('click',newGroup);$('groupClose').addEventListener('click',()=>$('groupSheet').classList.remove('open'));
 import('./documents.js');
+import('./resident-documents.js');
