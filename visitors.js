@@ -1,0 +1,62 @@
+import { createClient, OAuthStrategy } from 'https://esm.sh/@wix/sdk@1.21.16';
+import { functions } from 'https://esm.sh/@wix/http-functions';
+
+const CLIENT_ID='2a7eb7cd-240a-422b-9fe2-10f5dec36b5e';
+const TOKENS_KEY='scad_residencial_wix_tokens';
+const stored=(()=>{try{return JSON.parse(localStorage.getItem(TOKENS_KEY)||'null')}catch{return null}})();
+const client=createClient({auth:OAuthStrategy({clientId:CLIENT_ID,...(stored?{tokens:stored}:{})}),modules:{functions}});
+const FN={list:'resVisitantesPropios',save:'resVisitantePreautorizar',cancel:'resVisitanteCancelar'};
+const $=id=>document.getElementById(id);
+let items=[];
+
+const css=document.createElement('link');css.rel='stylesheet';css.href='visitors.css';document.head.appendChild(css);
+const esc=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function getFn(n){const r=await client.functions.get(n);return r.json()}
+async function postFn(n,p){const r=await client.functions.post(n,{headers:{'Content-Type':'application/json'},params:new URLSearchParams(),body:JSON.stringify(p)});return r.json()}
+function fmt(v){if(!v)return'';const d=new Date(v);if(Number.isNaN(d.getTime()))return'';return new Intl.DateTimeFormat('es-MX',{dateStyle:'medium',timeStyle:'short'}).format(d)}
+function localIso(v){if(!v)return'';const d=new Date(v);if(Number.isNaN(d.getTime()))return'';return d.toISOString()}
+function stateClass(v){return String(v||'').trim().toLowerCase()}
+
+function inject(){
+ if($('residentVisitorsView'))return;
+ $('appView').insertAdjacentHTML('afterend',`<section id="residentVisitorsView" hidden><div class="view-head"><button class="back-btn" id="residentVisitorsBack">‹</button><div><span class="view-kicker">SERVICIOS</span><h1>Visitantes</h1></div></div><div class="rvis-summary"><span>Preautorizaciones</span><strong id="residentVisitorsCount">0</strong></div><button class="primary-btn rvis-new" id="residentVisitorsNew" type="button">+ Nueva visita</button><div id="residentVisitorsList" class="rvis-list"></div></section>`);
+ document.body.insertAdjacentHTML('beforeend',`<div class="sheet" id="residentVisitorSheet"><div class="sheet-panel"><button class="sheet-close" id="residentVisitorClose">×</button><p class="eyebrow">VISITANTES</p><h2>Nueva preautorización</h2><form id="residentVisitorForm" class="access-form rvis-form"><label>Nombre del visitante<input id="residentVisitorName" maxlength="140" required/></label><label>Acompañantes <span style="font-weight:400;color:#6d7b8b">(opcional)</span><input id="residentVisitorCompanions" maxlength="250" placeholder="Ej. María López y dos menores"/></label><div class="rvis-row"><label>Inicio de vigencia<input id="residentVisitorStart" type="datetime-local" required/></label><label>Fin de vigencia<input id="residentVisitorEnd" type="datetime-local" required/></label></div><label>Observaciones <span style="font-weight:400;color:#6d7b8b">(opcional)</span><textarea id="residentVisitorNotes" maxlength="600"></textarea></label><p class="rvis-note">El código identifica la preautorización. La entrada queda sujeta a vigencia y validación de identidad en caseta.</p><button class="primary-btn" id="residentVisitorSave" type="submit">Generar preautorización</button></form><p class="access-status" id="residentVisitorStatus"></p></div></div>`);
+ document.body.insertAdjacentHTML('beforeend',`<div class="sheet" id="residentVisitorConfirm"><div class="sheet-panel"><button class="sheet-close" id="residentVisitorConfirmClose">×</button><p class="eyebrow">PREAUTORIZACIÓN REGISTRADA</p><h2 id="residentVisitorConfirmName"></h2><p>Comparte este código con tu visitante. En caseta será utilizado para localizar la autorización y validar su identidad.</p><div class="rvis-confirm-code" id="residentVisitorConfirmCode"></div><button class="primary-btn" id="residentVisitorConfirmDone" type="button">Continuar</button></div></div>`);
+ $('residentVisitorsBack').onclick=close;
+ $('residentVisitorsNew').onclick=openForm;
+ $('residentVisitorClose').onclick=()=>$('residentVisitorSheet').classList.remove('open');
+ $('residentVisitorConfirmClose').onclick=closeConfirm;
+ $('residentVisitorConfirmDone').onclick=closeConfirm;
+ $('residentVisitorForm').onsubmit=save;
+ const btn=document.querySelector('[data-module="visitantes"]');if(btn)btn.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();open()},true);
+ const foot=document.querySelector('.app-footer span');if(foot)foot.textContent='v0.32';
+}
+function close(){$('residentVisitorsView').hidden=true;$('appView').hidden=false}
+function openForm(){
+ $('residentVisitorForm').reset();$('residentVisitorStatus').textContent='';
+ const now=new Date();now.setMinutes(now.getMinutes()-now.getTimezoneOffset());const start=now.toISOString().slice(0,16);
+ const end=new Date(now.getTime()+4*60*60*1000);const endLocal=new Date(end.getTime()-end.getTimezoneOffset()*60000).toISOString().slice(0,16);
+ $('residentVisitorStart').value=start;$('residentVisitorEnd').value=endLocal;$('residentVisitorSheet').classList.add('open');
+}
+function closeConfirm(){$('residentVisitorConfirm').classList.remove('open')}
+function render(){
+ $('residentVisitorsCount').textContent=String(items.length);
+ const box=$('residentVisitorsList');
+ if(!items.length){box.innerHTML='<div class="rvis-empty"><strong>Sin preautorizaciones</strong><span>No tienes visitas registradas en este momento.</span></div>';return}
+ box.innerHTML=items.map(v=>`<article class="rvis-card"><div class="rvis-main"><div class="rvis-copy"><strong>${esc(v.nombreVisitante||'Visitante')}</strong><small>${esc(fmt(v.fechaInicioVigencia))} → ${esc(fmt(v.fechaFinVigencia))}</small>${v.numeroVisitantes?`<span>Acompañantes: ${esc(v.numeroVisitantes)}</span>`:''}${v.observaciones?`<span>${esc(v.observaciones)}</span>`:''}<span class="rvis-code">Código ${esc(v.codigoAcceso||'—')}</span></div><span class="rvis-state ${stateClass(v.estatus)}">${esc(v.estatus||'Preautorizada')}</span></div>${v.estatus==='Preautorizada'?`<div class="rvis-actions"><button type="button" data-rvis-copy="${esc(v.autorizacionId)}">Copiar código</button><button type="button" class="danger" data-rvis-cancel="${esc(v.autorizacionId)}">Cancelar</button></div>`:''}</article>`).join('');
+ box.querySelectorAll('[data-rvis-copy]').forEach(b=>b.onclick=()=>copyCode(b.dataset.rvisCopy));
+ box.querySelectorAll('[data-rvis-cancel]').forEach(b=>b.onclick=()=>cancelVisit(b.dataset.rvisCancel));
+}
+async function copyCode(id){const v=items.find(x=>x.autorizacionId===id);if(!v?.codigoAcceso)return;try{await navigator.clipboard.writeText(v.codigoAcceso)}catch{prompt('Código de acceso',v.codigoAcceso)}}
+async function load(){
+ $('residentVisitorsList').innerHTML='<div class="rvis-empty"><strong>Cargando visitantes…</strong></div>';
+ try{const d=await getFn(FN.list);if(!d?.ok)throw Error(d?.reason||'VISITANTES_ERROR');items=Array.isArray(d.visitantes)?d.visitantes:[];render()}catch(e){console.error('SCaD Residencial visitantes:',e);items=[];$('residentVisitorsCount').textContent='0';$('residentVisitorsList').innerHTML='<div class="rvis-empty"><strong>No fue posible cargar Visitantes</strong><span>Verifica las funciones publicadas en Wix.</span></div>'}
+}
+async function open(){$('appView').hidden=true;$('residentVisitorsView').hidden=false;await load()}
+async function save(e){
+ e.preventDefault();const start=localIso($('residentVisitorStart').value),end=localIso($('residentVisitorEnd').value);if(!start||!end){$('residentVisitorStatus').textContent='Define la vigencia de la autorización.';return}if(new Date(end)<=new Date(start)){$('residentVisitorStatus').textContent='El fin de vigencia debe ser posterior al inicio.';return}
+ $('residentVisitorSave').disabled=true;$('residentVisitorStatus').textContent='Generando preautorización…';
+ try{const d=await postFn(FN.save,{nombreVisitante:$('residentVisitorName').value.trim(),numeroVisitantes:$('residentVisitorCompanions').value.trim(),fechaInicioVigencia:start,fechaFinVigencia:end,observaciones:$('residentVisitorNotes').value.trim()});if(!d?.ok)throw Error(d?.reason||'VISITANTE_GUARDAR_ERROR');$('residentVisitorSheet').classList.remove('open');$('residentVisitorConfirmName').textContent=d.nombreVisitante||'Visita autorizada';$('residentVisitorConfirmCode').textContent=d.codigoAcceso||'';$('residentVisitorConfirm').classList.add('open');await load()}catch(err){console.error(err);$('residentVisitorStatus').textContent='No fue posible generar la preautorización.'}finally{$('residentVisitorSave').disabled=false}
+}
+async function cancelVisit(id){if(!confirm('¿Cancelar esta preautorización?'))return;try{const d=await postFn(FN.cancel,{autorizacionId:id});if(!d?.ok)throw Error(d?.reason||'CANCELAR_ERROR');await load()}catch(e){console.error(e);alert('No fue posible cancelar la preautorización.')}}
+inject();
