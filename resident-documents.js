@@ -9,6 +9,8 @@ const FN='resDocumentosDisponibles';
 const $=id=>document.getElementById(id);
 let residentDocs=[];
 
+const css=document.createElement('link');css.rel='stylesheet';css.href='resident-documents.css';document.head.appendChild(css);
+
 function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function fmtDate(v){if(!v)return'';const m=String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}/${m[2]}/${m[1]}`:String(v)}
 function getFn(n){return client.functions.get(n).then(r=>r.json())}
