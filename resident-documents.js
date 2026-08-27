@@ -23,7 +23,7 @@ function inject(){
   $('residentDocsBack').onclick=closeResidentDocs;
   const btn=document.querySelector('[data-module="documentacion"]');
   if(btn){btn.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();openResidentDocs()},true)}
-  const footer=document.querySelector('.app-footer span');if(footer)footer.textContent='v0.30';
+  const footer=document.querySelector('.app-footer span');if(footer)footer.textContent='v0.31';
 }
 function closeResidentDocs(){$('residentDocumentsView').hidden=true;$('appView').hidden=false}
 function renderDocs(){
@@ -35,5 +35,6 @@ function renderDocs(){
 function openPdf(id,download){const d=residentDocs.find(x=>x.documentoId===id),url=String(d?.archivoUrl||'').trim();if(!/^https?:\/\//i.test(url)){alert('El archivo no tiene una dirección válida.');return}if(download){const a=document.createElement('a');a.href=url;a.download=d.nombreArchivo||'documento.pdf';a.target='_blank';a.rel='noopener';document.body.appendChild(a);a.click();a.remove()}else window.open(url,'_blank','noopener')}
 async function openResidentDocs(){$('appView').hidden=true;$('residentDocumentsView').hidden=false;$('residentDocsList').innerHTML='<div class="empty-state"><strong>Cargando documentos…</strong><span>Consultando tus permisos.</span></div>';$('residentDocsCount').textContent='…';try{const data=await getFn(FN);if(!data?.ok)throw Error(data?.reason||'DOCUMENTOS_ERROR');residentDocs=Array.isArray(data.documentos)?data.documentos:[];renderDocs()}catch(e){console.error('SCaD Residencial documentos:',e);residentDocs=[];$('residentDocsCount').textContent='0';$('residentDocsList').innerHTML='<div class="empty-state"><strong>No fue posible cargar Documentación</strong><span>Verifica la función publicada en Wix.</span></div>'}}
 inject();
+import('./session-control.js');
 import('./programming.js');
 import('./resident-programming.js');
