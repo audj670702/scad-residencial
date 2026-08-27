@@ -1,5 +1,6 @@
 const $=id=>document.getElementById(id);
 let deferredInstallPrompt=null;
+const INSTALLED_KEY='scad_residencial_app_installed';
 
 function ensureHead(){
   if(!document.querySelector('link[href="install-app.css"]')){
@@ -19,11 +20,13 @@ function ensureHead(){
 function isStandalone(){return window.matchMedia?.('(display-mode: standalone)')?.matches===true||window.navigator.standalone===true}
 function isIOS(){return /iphone|ipad|ipod/i.test(navigator.userAgent||'')}
 function isAndroid(){return /android/i.test(navigator.userAgent||'')}
+function wasInstalled(){try{return localStorage.getItem(INSTALLED_KEY)==='1'}catch{return false}}
+function markInstalled(){try{localStorage.setItem(INSTALLED_KEY,'1')}catch{}}
 
 function ensureInstallUI(){
   if($('installAppBtn'))return;
   const topbar=document.querySelector('.topbar');
-  if(topbar)topbar.insertAdjacentHTML('beforeend','<button class="install-app-btn" id="installAppBtn" type="button" aria-label="Instalar SCaD Residencial"><span class="install-app-icon">⇩</span><span>Instalar app</span></button>');
+  if(topbar)topbar.insertAdjacentHTML('beforeend','<button class="install-app-btn" id="installAppBtn" type="button" aria-label="Instalar SCaD Residencial"><span class="install-app-icon">⇩</span><span class="install-app-label">Instalar app</span></button>');
   document.body.insertAdjacentHTML('beforeend',`<div class="sheet" id="installAppSheet"><div class="sheet-panel install-app-panel"><button class="sheet-close" id="installAppClose" type="button">×</button><p class="eyebrow">SCaD RESIDENCIAL</p><h2 id="installAppTitle">Instalar app</h2><div id="installAppContent"></div></div></div>`);
   $('installAppBtn')?.addEventListener('click',openInstall);
   $('installAppClose')?.addEventListener('click',closeInstall);
@@ -31,10 +34,40 @@ function ensureInstallUI(){
   updateVisibility();
 }
 
+function setInstalledState(){
+  const btn=$('installAppBtn');
+  if(!btn)return;
+  btn.hidden=false;
+  btn.disabled=true;
+  btn.classList.add('installed');
+  const icon=btn.querySelector('.install-app-icon');
+  const label=btn.querySelector('.install-app-label');
+  if(icon)icon.textContent='✓';
+  if(label)label.textContent='App instalada';
+  btn.setAttribute('aria-label','SCaD Residencial instalada');
+}
+
+function setInstallState(){
+  const btn=$('installAppBtn');
+  if(!btn)return;
+  btn.disabled=false;
+  btn.classList.remove('installed');
+  const icon=btn.querySelector('.install-app-icon');
+  const label=btn.querySelector('.install-app-label');
+  if(icon)icon.textContent='⇩';
+  if(label)label.textContent='Instalar app';
+  btn.setAttribute('aria-label','Instalar SCaD Residencial');
+}
+
 function updateVisibility(){
   const btn=$('installAppBtn');
   if(!btn)return;
-  if(isStandalone()){btn.hidden=true;return}
+  if(isStandalone()||wasInstalled()){
+    markInstalled();
+    setInstalledState();
+    return;
+  }
+  setInstallState();
   // iOS necesita instrucciones manuales. En el resto sólo mostramos el botón
   // cuando el navegador confirma que la PWA es instalable.
   btn.hidden=!(isIOS()||!!deferredInstallPrompt);
@@ -53,16 +86,13 @@ function renderAndroidManual(){
 }
 
 async function openInstall(){
-  if(isStandalone())return;
-  // Chrome/Edge/Android: disparar directamente el instalador nativo.
+  if(isStandalone()||wasInstalled())return;
   if(deferredInstallPrompt){await promptInstall();return}
-  // iOS no ofrece beforeinstallprompt: conserva guía manual específica.
   if(isIOS()){
     renderIOS();
     $('installAppSheet')?.classList.add('open');
     return;
   }
-  // Respaldo Android excepcional: sólo si el botón ya era visible por otro motivo.
   if(isAndroid()){
     renderAndroidManual();
     $('installAppSheet')?.classList.add('open');
@@ -74,7 +104,10 @@ async function promptInstall(){
   const prompt=deferredInstallPrompt;
   deferredInstallPrompt=null;
   prompt.prompt();
-  try{await prompt.userChoice}catch{}
+  try{
+    const choice=await prompt.userChoice;
+    if(choice?.outcome==='accepted')markInstalled();
+  }catch{}
   closeInstall();
   updateVisibility();
 }
@@ -86,6 +119,7 @@ window.addEventListener('beforeinstallprompt',e=>{
 });
 window.addEventListener('appinstalled',()=>{
   deferredInstallPrompt=null;
+  markInstalled();
   closeInstall();
   updateVisibility();
 });
