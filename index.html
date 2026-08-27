@@ -17,27 +17,41 @@
   </header>
 
   <main class="app-shell">
-    <section class="resident-row" aria-label="Identidad del residente">
-      <div class="resident-avatar" aria-hidden="true">NR</div>
-      <div class="resident-copy">
-        <strong class="resident-name">Nombre del residente</strong>
-        <span class="resident-meta">Residente</span>
+    <section class="auth-view" id="authView" aria-label="Inicio de sesión">
+      <div class="auth-copy">
+        <h1>Acceso de residentes</h1>
+        <p>Inicia sesión con tu cuenta registrada para acceder a SCaD Residencial.</p>
       </div>
+      <div class="auth-actions">
+        <button class="auth-primary" id="loginBtn">Iniciar sesión</button>
+        <button class="auth-secondary" id="registerBtn">Registrarme</button>
+      </div>
+      <p class="auth-note" id="authNote">La autenticación se realizará mediante Wix Members y la validación posterior del usuario en SCaD Residencial.</p>
     </section>
 
-    <section class="modules-section">
-      <h1 class="section-title">Servicios</h1>
-      <div class="modules-list">
-        <button class="module-row module-mensajeria" data-module="mensajeria"><span class="module-icon">💬</span><span class="module-copy"><span class="module-title">Mensajería</span><span class="module-desc">Comunicación y avisos</span></span><span class="module-arrow">›</span></button>
-        <button class="module-row module-orientacion" data-module="orientacion"><span class="module-icon">🧭</span><span class="module-copy"><span class="module-title">Orientación</span><span class="module-desc">Guías para residentes</span></span><span class="module-arrow">›</span></button>
-        <button class="module-row module-documentacion" data-module="documentacion"><span class="module-icon">📄</span><span class="module-copy"><span class="module-title">Documentación</span><span class="module-desc">Reglamentos y formatos</span></span><span class="module-arrow">›</span></button>
-        <button class="module-row module-programacion" data-module="programacion"><span class="module-icon">📅</span><span class="module-copy"><span class="module-title">Programación</span><span class="module-desc">Eventos y actividades</span></span><span class="module-arrow">›</span></button>
-        <button class="module-row module-reportes" data-module="reportes"><span class="module-icon">🛠️</span><span class="module-copy"><span class="module-title">Reportes</span><span class="module-desc">Notifica y da seguimiento</span></span><span class="module-arrow">›</span></button>
-        <button class="module-row module-visitantes" data-module="visitantes"><span class="module-icon">👥</span><span class="module-copy"><span class="module-title">Visitantes</span><span class="module-desc">Preautoriza accesos</span></span><span class="module-arrow">›</span></button>
-      </div>
+    <section class="app-view" id="appView" hidden>
+      <section class="resident-row" aria-label="Identidad del residente">
+        <div class="resident-avatar" id="residentAvatar" aria-hidden="true">NR</div>
+        <div class="resident-copy">
+          <strong class="resident-name" id="residentName">Residente</strong>
+          <span class="resident-meta" id="residentMeta">Usuario autorizado</span>
+        </div>
+      </section>
+
+      <section class="modules-section">
+        <h1 class="section-title">Servicios</h1>
+        <div class="modules-list">
+          <button class="module-row module-mensajeria" data-module="mensajeria"><span class="module-icon">💬</span><span class="module-copy"><span class="module-title">Mensajería</span><span class="module-desc">Comunicación y avisos</span></span><span class="module-arrow">›</span></button>
+          <button class="module-row module-orientacion" data-module="orientacion"><span class="module-icon">🧭</span><span class="module-copy"><span class="module-title">Orientación</span><span class="module-desc">Guías para residentes</span></span><span class="module-arrow">›</span></button>
+          <button class="module-row module-documentacion" data-module="documentacion"><span class="module-icon">📄</span><span class="module-copy"><span class="module-title">Documentación</span><span class="module-desc">Reglamentos y formatos</span></span><span class="module-arrow">›</span></button>
+          <button class="module-row module-programacion" data-module="programacion"><span class="module-icon">📅</span><span class="module-copy"><span class="module-title">Programación</span><span class="module-desc">Eventos y actividades</span></span><span class="module-arrow">›</span></button>
+          <button class="module-row module-reportes" data-module="reportes"><span class="module-icon">🛠️</span><span class="module-copy"><span class="module-title">Reportes</span><span class="module-desc">Notifica y da seguimiento</span></span><span class="module-arrow">›</span></button>
+          <button class="module-row module-visitantes" data-module="visitantes"><span class="module-icon">👥</span><span class="module-copy"><span class="module-title">Visitantes</span><span class="module-desc">Preautoriza accesos</span></span><span class="module-arrow">›</span></button>
+        </div>
+      </section>
     </section>
 
-    <footer class="app-footer"><a href="#">Política de privacidad</a><span>v0.2</span></footer>
+    <footer class="app-footer"><a href="#">Política de privacidad</a><span>v0.3</span></footer>
   </main>
 
   <div class="sheet" id="moduleSheet" aria-hidden="true">
