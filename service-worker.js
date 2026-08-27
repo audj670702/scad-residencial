@@ -1,4 +1,4 @@
-const CACHE = 'scad-residencial-v1';
+const CACHE = 'scad-residencial-v3';
 const CORE = [
   './',
   './index.html',
