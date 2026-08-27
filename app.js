@@ -11,7 +11,7 @@ const moduleInfo = {
 
 const AUTH = {
   clientId: '2a7eb7cd-240a-422b-9fe2-10f5dec36b5e',
-  redirectUri: 'https://residencial.scad.mx',
+  redirectUri: 'https://residencial.scad.mx/',
   authorizationEndpoint: ''
 };
 
