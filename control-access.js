@@ -1,0 +1,79 @@
+import { createClient, OAuthStrategy } from 'https://esm.sh/@wix/sdk@1.21.16';
+import { functions } from 'https://esm.sh/@wix/http-functions';
+
+const CLIENT_ID='2a7eb7cd-240a-422b-9fe2-10f5dec36b5e';
+const TOKENS_KEY='scad_residencial_wix_tokens';
+const stored=(()=>{try{return JSON.parse(localStorage.getItem(TOKENS_KEY)||'null')}catch{return null}})();
+const client=createClient({auth:OAuthStrategy({clientId:CLIENT_ID,...(stored?{tokens:stored}:{})}),modules:{functions}});
+const FN={context:'resControlAccesosContext',validate:'resControlAccesosValidarCodigo',inside:'resControlAccesosDentro',entry:'resControlAccesosEntrada',exit:'resControlAccesosSalida'};
+const $=id=>document.getElementById(id);
+let currentValidation=null,insideItems=[];
+
+const css=document.createElement('link');css.rel='stylesheet';css.href='control-access.css';document.head.appendChild(css);
+const esc=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function getFn(n){const r=await client.functions.get(n);return r.json()}
+async function postFn(n,p){const r=await client.functions.post(n,{headers:{'Content-Type':'application/json'},params:new URLSearchParams(),body:JSON.stringify(p)});return r.json()}
+function fmt(v){if(!v)return'—';const d=new Date(v);if(Number.isNaN(d.getTime()))return'—';return new Intl.DateTimeFormat('es-MX',{dateStyle:'medium',timeStyle:'short'}).format(d)}
+
+function inject(){
+ if($('controlAccessView'))return;
+ const services=document.querySelector('#appView .modules-list');
+ if(services){services.insertAdjacentHTML('beforeend',`<button class="module-row access-control-row" id="openControlAccess" type="button"><span class="module-icon">🛂</span><span class="module-copy"><span class="module-title">Control de Accesos</span><span class="module-desc">Validación de entradas y salidas</span></span><span class="module-arrow">›</span></button>`)}
+ $('appView').insertAdjacentHTML('afterend',`<section id="controlAccessView" hidden><div class="view-head"><button class="back-btn" id="controlAccessBack">‹</button><div><span class="view-kicker">CONTROL DE ACCESOS</span><h1>Control de Accesos</h1></div></div><div class="cacc-tabs"><button class="cacc-tab active" data-cacc-tab="validate" type="button">Validar acceso</button><button class="cacc-tab" data-cacc-tab="inside" type="button">Visitas dentro <b id="controlAccessInsideCount">0</b></button></div><section id="controlAccessValidatePanel"><p class="cacc-section-note">El código localiza la preautorización. La identidad debe validarse presencialmente antes de registrar la entrada.</p><form class="cacc-toolbar" id="controlAccessForm"><input class="cacc-code" id="controlAccessCode" maxlength="6" autocomplete="off" placeholder="CÓDIGO" required/><button class="primary-btn" id="controlAccessValidateBtn" type="submit">Validar</button></form><div id="controlAccessResult" class="cacc-result" hidden></div></section><section id="controlAccessInsidePanel" hidden><div class="cacc-actions"><button class="secondary-action cacc-refresh" id="controlAccessRefresh" type="button">Actualizar</button></div><div id="controlAccessInsideList" class="cacc-panel"></div></section></section>`);
+ $('controlAccessBack').onclick=close;
+ $('openControlAccess').onclick=open;
+ $('controlAccessForm').onsubmit=validateCode;
+ $('controlAccessRefresh').onclick=loadInside;
+ document.querySelectorAll('[data-cacc-tab]').forEach(b=>b.onclick=()=>setTab(b.dataset.caccTab));
+ const foot=document.querySelector('.app-footer span');if(foot)foot.textContent='v0.33';
+ checkPermission();
+}
+
+async function checkPermission(){
+ try{
+  if(!(await client.auth.loggedIn()))return;
+  const d=await getFn(FN.context);
+  const btn=$('openControlAccess');
+  if(d?.ok&&d?.authorized)btn?.classList.add('is-authorized');else btn?.classList.remove('is-authorized');
+ }catch(e){console.warn('SCaD Residencial permiso Control de Accesos:',e)}
+}
+function close(){$('controlAccessView').hidden=true;$('appView').hidden=false;currentValidation=null}
+async function open(){
+ $('appView').hidden=true;$('controlAccessView').hidden=false;setTab('validate');$('controlAccessCode').value='';$('controlAccessResult').hidden=true;currentValidation=null;await loadInside();
+}
+function setTab(name){
+ document.querySelectorAll('[data-cacc-tab]').forEach(b=>b.classList.toggle('active',b.dataset.caccTab===name));
+ $('controlAccessValidatePanel').hidden=name!=='validate';$('controlAccessInsidePanel').hidden=name!=='inside';if(name==='inside')loadInside();
+}
+function renderValidation(v){
+ const box=$('controlAccessResult');box.hidden=false;currentValidation=v;
+ if(!v?.found){box.innerHTML='<div class="cacc-empty"><strong>Código no localizado</strong><span>Verifica el código proporcionado por el visitante.</span></div>';return}
+ const usable=v.usable===true;
+ box.innerHTML=`<article class="cacc-card"><div class="cacc-card-head"><div><span class="cacc-code-pill">${esc(v.codigoAcceso||'')}</span><h3>${esc(v.nombreVisitante||'Visitante')}</h3></div><span class="cacc-status ${esc(String(v.estatus||'').toLowerCase())}">${esc(v.estatus||'')}</span></div><div class="cacc-detail-grid"><div><span>Destino</span><strong>${esc(v.destino||'—')}</strong></div><div><span>Vigencia</span><strong>${esc(fmt(v.fechaInicioVigencia))}<br>${esc(fmt(v.fechaFinVigencia))}</strong></div></div>${v.numeroVisitantes?`<div class="cacc-meta"><span><strong>Acompañantes:</strong> ${esc(v.numeroVisitantes)}</span></div>`:''}${v.observaciones?`<div class="cacc-meta"><span><strong>Observaciones:</strong> ${esc(v.observaciones)}</span></div>`:''}${usable?'<div class="cacc-valid">Preautorización vigente. Confirma presencialmente la identidad antes de registrar la entrada.</div>':`<div class="cacc-warning">${esc(v.message||'Esta autorización no puede registrar entrada.')}</div>`}${usable?`<div class="cacc-actions"><button class="primary-btn" id="controlAccessEntryBtn" type="button">Registrar entrada</button></div>`:''}</article>`;
+ if(usable)$('controlAccessEntryBtn').onclick=registerEntry;
+}
+async function validateCode(e){
+ e.preventDefault();const code=$('controlAccessCode').value.trim().toUpperCase();if(!code)return;
+ $('controlAccessValidateBtn').disabled=true;$('controlAccessResult').hidden=false;$('controlAccessResult').innerHTML='<div class="cacc-empty"><strong>Validando código…</strong></div>';
+ try{const d=await postFn(FN.validate,{codigoAcceso:code});if(!d?.ok)throw Error(d?.reason||'VALIDAR_ERROR');renderValidation(d)}catch(err){console.error(err);$('controlAccessResult').innerHTML='<div class="cacc-empty"><strong>No fue posible validar el código</strong><span>Intenta nuevamente.</span></div>'}finally{$('controlAccessValidateBtn').disabled=false}
+}
+async function registerEntry(){
+ if(!currentValidation?.autorizacionId)return;if(!confirm(`¿Registrar entrada de ${currentValidation.nombreVisitante||'esta visita'}?`))return;
+ const btn=$('controlAccessEntryBtn');if(btn)btn.disabled=true;
+ try{const d=await postFn(FN.entry,{autorizacionId:currentValidation.autorizacionId});if(!d?.ok)throw Error(d?.reason||'ENTRADA_ERROR');renderValidation({...currentValidation,usable:false,estatus:'Dentro',message:'Entrada registrada correctamente.'});await loadInside()}catch(e){console.error(e);alert('No fue posible registrar la entrada. La autorización pudo cambiar de estado o vigencia.');if(btn)btn.disabled=false}
+}
+function renderInside(){
+ $('controlAccessInsideCount').textContent=String(insideItems.length);
+ const box=$('controlAccessInsideList');if(!insideItems.length){box.innerHTML='<div class="cacc-empty"><strong>Sin visitas dentro</strong><span>No hay ciclos de acceso abiertos.</span></div>';return}
+ box.innerHTML=insideItems.map(v=>`<article class="cacc-card"><div class="cacc-card-head"><div><h3>${esc(v.nombreVisitante||'Visitante')}</h3><span class="cacc-code-pill">${esc(v.codigoAcceso||'')}</span></div><span class="cacc-status ${esc(String(v.estatus||'').toLowerCase())}">${esc(v.estatus||'Dentro')}</span></div><div class="cacc-detail-grid"><div><span>Destino</span><strong>${esc(v.destino||'—')}</strong></div><div><span>Entrada</span><strong>${esc(fmt(v.fechaEntrada))}</strong></div></div>${v.numeroVisitantes?`<div class="cacc-meta"><span><strong>Acompañantes:</strong> ${esc(v.numeroVisitantes)}</span></div>`:''}<div class="cacc-actions"><button class="primary-btn" type="button" data-cacc-exit="${esc(v.autorizacionId)}">Registrar salida</button></div></article>`).join('');
+ box.querySelectorAll('[data-cacc-exit]').forEach(b=>b.onclick=()=>registerExit(b.dataset.caccExit));
+}
+async function loadInside(){
+ try{const d=await getFn(FN.inside);if(!d?.ok)throw Error(d?.reason||'DENTRO_ERROR');insideItems=Array.isArray(d.visitantes)?d.visitantes:[];renderInside()}catch(e){console.error(e);insideItems=[];renderInside()}
+}
+async function registerExit(id){
+ const v=insideItems.find(x=>x.autorizacionId===id);if(!v)return;if(!confirm(`¿Registrar salida de ${v.nombreVisitante||'esta visita'}?`))return;
+ try{const d=await postFn(FN.exit,{autorizacionId:id});if(!d?.ok)throw Error(d?.reason||'SALIDA_ERROR');await loadInside()}catch(e){console.error(e);alert('No fue posible registrar la salida.')}
+}
+
+inject();
