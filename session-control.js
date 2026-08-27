@@ -26,36 +26,59 @@ function ensureGate(){
   if($('sessionGate'))return $('sessionGate');
   const app=$('appView');
   if(!app)return null;
-  app.insertAdjacentHTML('afterend',`<section id="sessionGate" hidden><div class="auth-view"><div class="auth-copy"><h1 id="sessionGateTitle">Validando sesión</h1><p id="sessionGateText">Comprobando que esta cuenta no esté siendo utilizada en otra instancia.</p></div></div></section>`);
+  app.insertAdjacentHTML('afterend',`<section id="sessionGate" hidden><div class="auth-view"><div class="auth-copy"><h1 id="sessionGateTitle">Validando sesión</h1><p id="sessionGateText">Comprobando la sesión activa.</p><div id="sessionGateActions" class="auth-actions" hidden><button class="auth-primary" id="sessionTakeoverBtn" type="button">Usar este dispositivo</button></div><p class="auth-note" id="sessionGateNote"></p></div></div></section>`);
+  $('sessionTakeoverBtn')?.addEventListener('click',takeoverSession);
   return $('sessionGate');
 }
 
-function showGate(title,text){
+function showGate(title,text,{takeover=false,note=''}={}){
   const gate=ensureGate();
   if(!gate)return;
   ['appView','adminView','usersView','groupsView','documentsAdminView','programmingAdminView','residentDocumentsView','residentProgrammingView'].forEach(id=>{const e=$(id);if(e)e.hidden=true});
   gate.hidden=false;
   $('sessionGateTitle').textContent=title;
   $('sessionGateText').textContent=text;
+  const actions=$('sessionGateActions');if(actions)actions.hidden=!takeover;
+  const noteEl=$('sessionGateNote');if(noteEl)noteEl.textContent=note;
 }
 
 function allowApp(){
   const gate=ensureGate();if(gate)gate.hidden=true;
   validated=true;
   const app=$('appView');if(app)app.hidden=false;
-  const footer=document.querySelector('.app-footer span');if(footer)footer.textContent='v0.31';
+}
+
+async function takeoverSession(){
+  if(validating)return;
+  validating=true;
+  const btn=$('sessionTakeoverBtn');if(btn)btn.disabled=true;
+  showGate('Recuperando sesión','Cerrando la sesión anterior y activando este dispositivo.');
+  try{
+    const data=await postFn('resSesionAbrir',{sesionId:getSessionId(),forzar:true});
+    if(data?.ok){allowApp();return}
+    showGate('No fue posible recuperar la sesión','Intenta nuevamente.',{takeover:true});
+  }catch(e){
+    console.error('SCaD Residencial recuperación de sesión:',e);
+    showGate('No fue posible recuperar la sesión','Verifica la conexión e intenta nuevamente.',{takeover:true});
+  }finally{
+    validating=false;
+    if(btn)btn.disabled=false;
+  }
 }
 
 async function claimSession(){
   if(validated||validating)return;
   validating=true;
-  showGate('Validando sesión','Comprobando que esta cuenta no esté siendo utilizada en otra instancia.');
+  showGate('Validando sesión','Comprobando la sesión activa.');
   try{
     if(!(await client.auth.loggedIn())){validating=false;return}
     const data=await postFn('resSesionAbrir',{sesionId:getSessionId()});
     if(data?.ok){allowApp();return}
     if(data?.reason==='SESION_ACTIVA_EN_OTRA_INSTANCIA'){
-      showGate('Sesión activa en otra instancia','Esta cuenta ya está siendo utilizada en otra instancia de SCaD Residencial. Cierra la sesión activa antes de continuar aquí.');
+      showGate('Sesión activa','Existe una sesión registrada para esta cuenta.',{
+        takeover:true,
+        note:'Si esta sesión también es tuya, usa este dispositivo. La sesión anterior se cerrará automáticamente.'
+      });
       return;
     }
     showGate('No fue posible validar la sesión','SCaD Residencial no pudo completar el control de sesión.');
