@@ -51,8 +51,24 @@
       </section>
     </section>
 
-    <footer class="app-footer"><a href="#">Política de privacidad</a><span>v0.10</span></footer>
+    <footer class="app-footer"><a href="#">Política de privacidad</a><span>v0.11</span></footer>
   </main>
+
+  <div class="sheet" id="accessSheet" aria-hidden="true">
+    <div class="sheet-panel">
+      <button class="sheet-close" id="accessClose" aria-label="Cerrar">×</button>
+      <p class="eyebrow">SCaD RESIDENCIAL</p>
+      <h2 id="accessTitle">Cuenta no activada</h2>
+      <p id="accessText">Tu cuenta Wix está identificada, pero todavía no tienes acceso a SCaD Residencial.</p>
+      <form id="accessForm" class="access-form">
+        <label>Nombre completo<input id="requestName" name="nombreCompleto" type="text" autocomplete="name" required /></label>
+        <label>Teléfono<input id="requestPhone" name="telefono" type="tel" autocomplete="tel" /></label>
+        <label>Vivienda / referencia<input id="requestHousing" name="vivienda" type="text" required /></label>
+        <button class="primary-btn" id="requestAccessBtn" type="submit">Solicitar activación</button>
+      </form>
+      <p class="access-status" id="accessStatus"></p>
+    </div>
+  </div>
 
   <div class="sheet" id="moduleSheet" aria-hidden="true">
     <div class="sheet-panel">
