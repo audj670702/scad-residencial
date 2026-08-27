@@ -141,13 +141,17 @@ async function validateAuthorizedUser() {
     const data = await response.json();
 
     if (!data?.authorized || !data?.user) {
-      throw new Error(data?.reason || 'NO_AUTH');
+      const reason = data?.reason || 'NO_AUTH';
+      const memberId = data?.memberId || 'NO_MEMBER_ID';
+      console.warn('SCaD Residencial authorization denied:', { reason, memberId, data });
+      setLoggedOut(`DEBUG v0.8 — ${reason} — memberId: ${memberId}`);
+      return;
     }
 
     setAuthenticated(data.user);
   } catch (error) {
     console.error('SCaD Residencial authorization:', error);
-    setLoggedOut('La sesión Wix es válida, pero este usuario no está autorizado en SCaD Residencial.');
+    setLoggedOut(`DEBUG v0.8 — ERROR_ENDPOINT — ${error?.message || 'Error desconocido'}`);
   }
 }
 
