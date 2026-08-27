@@ -13,29 +13,13 @@ const moduleInfo = {
 const AUTH = {
   clientId: '2a7eb7cd-240a-422b-9fe2-10f5dec36b5e',
   redirectUri: 'https://residencial.scad.mx/',
-  authorizationFunction: 'resAuthorization'
+  authorizationFunction: 'resAuthorization',
+  requestFunction: 'resSolicitudAcceso'
 };
 
-const STORAGE = {
-  oauthData: 'scad_residencial_wix_oauth_data',
-  tokens: 'scad_residencial_wix_tokens'
-};
-
-const storedTokens = (() => {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE.tokens) || 'null');
-  } catch {
-    return null;
-  }
-})();
-
-const wixClient = createClient({
-  auth: OAuthStrategy({
-    clientId: AUTH.clientId,
-    ...(storedTokens ? { tokens: storedTokens } : {})
-  }),
-  modules: { functions }
-});
+const STORAGE = { oauthData: 'scad_residencial_wix_oauth_data', tokens: 'scad_residencial_wix_tokens' };
+const storedTokens = (() => { try { return JSON.parse(localStorage.getItem(STORAGE.tokens) || 'null'); } catch { return null; } })();
+const wixClient = createClient({ auth: OAuthStrategy({ clientId: AUTH.clientId, ...(storedTokens ? { tokens: storedTokens } : {}) }), modules: { functions } });
 
 const authView = document.getElementById('authView');
 const appView = document.getElementById('appView');
@@ -45,6 +29,12 @@ const registerBtn = document.getElementById('registerBtn');
 const residentName = document.getElementById('residentName');
 const residentMeta = document.getElementById('residentMeta');
 const residentAvatar = document.getElementById('residentAvatar');
+const accessSheet = document.getElementById('accessSheet');
+const accessTitle = document.getElementById('accessTitle');
+const accessText = document.getElementById('accessText');
+const accessForm = document.getElementById('accessForm');
+const accessStatus = document.getElementById('accessStatus');
+const requestAccessBtn = document.getElementById('requestAccessBtn');
 
 function setAuthenticated(user) {
   authView.hidden = true;
@@ -52,148 +42,85 @@ function setAuthenticated(user) {
   const name = user?.nombreCompleto || user?.nombre || 'Residente';
   residentName.textContent = name;
   residentMeta.textContent = user?.rolResidencial || 'Usuario autorizado';
-  const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join('').toUpperCase();
-  residentAvatar.textContent = initials || 'R';
+  residentAvatar.textContent = name.split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase() || 'R';
 }
-
-function setLoggedOut(message = '') {
+function setLoggedOut(message = '') { appView.hidden = true; authView.hidden = false; loginBtn.disabled = false; registerBtn.disabled = false; if (message) authNote.textContent = message; }
+function openAccessState(type) {
   appView.hidden = true;
-  authView.hidden = false;
-  loginBtn.disabled = false;
-  registerBtn.disabled = false;
-  if (message) authNote.textContent = message;
+  authView.hidden = true;
+  accessStatus.textContent = '';
+  accessForm.hidden = type !== 'NEW';
+  if (type === 'NEW') { accessTitle.textContent = 'Cuenta no activada'; accessText.textContent = 'Tu cuenta Wix está identificada, pero todavía no tienes acceso a SCaD Residencial. Envía tu solicitud para revisión de la administración.'; }
+  if (type === 'PENDING') { accessTitle.textContent = 'Solicitud en revisión'; accessText.textContent = 'Tu solicitud de acceso ya fue registrada y está pendiente de autorización por la administración.'; }
+  if (type === 'SUSPENDED') { accessTitle.textContent = 'Acceso suspendido'; accessText.textContent = 'Tu usuario está registrado, pero actualmente no tiene acceso a SCaD Residencial. Contacta a la administración para mayor información.'; }
+  if (type === 'BAJA') { accessTitle.textContent = 'Acceso no disponible'; accessText.textContent = 'Este usuario no tiene acceso vigente a SCaD Residencial. Contacta a la administración para mayor información.'; }
+  accessSheet.classList.add('open'); accessSheet.setAttribute('aria-hidden', 'false');
 }
-
-function clearAuthCallbackFromUrl() {
-  if (window.location.href !== AUTH.redirectUri) {
-    window.history.replaceState({}, document.title, AUTH.redirectUri);
-  }
-}
-
-function hasOAuthCallback() {
-  const query = new URLSearchParams(window.location.search);
-  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-  return query.has('code') || query.has('error') || hash.has('code') || hash.has('error');
-}
+function closeAccessSheet() { accessSheet.classList.remove('open'); accessSheet.setAttribute('aria-hidden', 'true'); }
+function clearAuthCallbackFromUrl() { if (window.location.href !== AUTH.redirectUri) window.history.replaceState({}, document.title, AUTH.redirectUri); }
+function hasOAuthCallback() { const q = new URLSearchParams(window.location.search); const h = new URLSearchParams(window.location.hash.replace(/^#/, '')); return q.has('code') || q.has('error') || h.has('code') || h.has('error'); }
 
 async function startWixLogin() {
   try {
-    loginBtn.disabled = true;
-    registerBtn.disabled = true;
-    authNote.textContent = 'Conectando con Wix Members…';
-
-    const oauthData = await wixClient.auth.generateOAuthData(
-      AUTH.redirectUri,
-      window.location.href
-    );
-
+    loginBtn.disabled = true; registerBtn.disabled = true; authNote.textContent = 'Conectando con Wix Members…';
+    const oauthData = await wixClient.auth.generateOAuthData(AUTH.redirectUri, window.location.href);
     localStorage.setItem(STORAGE.oauthData, JSON.stringify(oauthData));
     const result = await wixClient.auth.getAuthUrl(oauthData);
     const authUrl = typeof result === 'string' ? result : result?.authUrl;
     if (!authUrl) throw new Error('WIX_AUTH_URL_NOT_AVAILABLE');
-
     window.location.assign(authUrl);
-  } catch (error) {
-    console.error('SCaD Residencial OAuth start:', error);
-    setLoggedOut('No fue posible iniciar la autenticación con Wix.');
-  }
+  } catch (error) { console.error('SCaD Residencial OAuth start:', error); setLoggedOut('No fue posible iniciar la autenticación con Wix.'); }
 }
 
 async function completeOAuthCallback() {
   if (!hasOAuthCallback()) return { handled: false, ok: false };
-
   try {
     const parsed = await wixClient.auth.parseFromUrl();
     if (parsed?.error) throw new Error(parsed.errorDescription || parsed.error);
     if (!parsed?.code || !parsed?.state) throw new Error('OAUTH_CODE_STATE_NOT_FOUND');
-
-    const saved = localStorage.getItem(STORAGE.oauthData);
-    if (!saved) throw new Error('OAUTH_DATA_NOT_FOUND');
-
-    const oauthData = JSON.parse(saved);
-    const tokens = await wixClient.auth.getMemberTokens(parsed.code, parsed.state, oauthData);
-
-    wixClient.auth.setTokens(tokens);
-    localStorage.setItem(STORAGE.tokens, JSON.stringify(tokens));
-    localStorage.removeItem(STORAGE.oauthData);
-    clearAuthCallbackFromUrl();
+    const saved = localStorage.getItem(STORAGE.oauthData); if (!saved) throw new Error('OAUTH_DATA_NOT_FOUND');
+    const tokens = await wixClient.auth.getMemberTokens(parsed.code, parsed.state, JSON.parse(saved));
+    wixClient.auth.setTokens(tokens); localStorage.setItem(STORAGE.tokens, JSON.stringify(tokens)); localStorage.removeItem(STORAGE.oauthData); clearAuthCallbackFromUrl();
     return { handled: true, ok: true };
-  } catch (error) {
-    console.error('SCaD Residencial OAuth callback:', error);
-    localStorage.removeItem(STORAGE.oauthData);
-    clearAuthCallbackFromUrl();
-    setLoggedOut('Wix devolvió la autenticación, pero no fue posible completar la sesión.');
-    return { handled: true, ok: false };
-  }
+  } catch (error) { console.error('SCaD Residencial OAuth callback:', error); localStorage.removeItem(STORAGE.oauthData); clearAuthCallbackFromUrl(); setLoggedOut('Wix devolvió la autenticación, pero no fue posible completar la sesión.'); return { handled: true, ok: false }; }
 }
 
 async function validateAuthorizedUser() {
-  const loggedIn = await wixClient.auth.loggedIn();
-
-  if (!loggedIn) {
-    setLoggedOut('Inicia sesión para habilitar los módulos de SCaD Residencial.');
-    return;
-  }
-
+  if (!(await wixClient.auth.loggedIn())) { setLoggedOut('Inicia sesión para habilitar los módulos de SCaD Residencial.'); return; }
   try {
     authNote.textContent = 'Validando autorización en SCaD Residencial…';
     const response = await wixClient.functions.get(AUTH.authorizationFunction);
     const data = await response.json();
-
-    if (!data?.authorized || !data?.user) {
-      const reason = data?.reason || 'NO_AUTH';
-      const memberId = data?.memberId || 'NO_MEMBER_ID';
-      console.warn('SCaD Residencial authorization denied:', { reason, memberId, data });
-      setLoggedOut(`DEBUG v0.8 — ${reason} — memberId: ${memberId}`);
-      return;
-    }
-
-    setAuthenticated(data.user);
-  } catch (error) {
-    console.error('SCaD Residencial authorization:', error);
-    setLoggedOut(`DEBUG v0.8 — ERROR_ENDPOINT — ${error?.message || 'Error desconocido'}`);
-  }
+    if (data?.authorized && data?.user) { closeAccessSheet(); setAuthenticated(data.user); return; }
+    const reason = data?.reason || 'NO_AUTH';
+    if (reason === 'MEMBER_NOT_IN_RES_USUARIOS') { openAccessState('NEW'); return; }
+    if (reason === 'USER_PENDING') { openAccessState('PENDING'); return; }
+    if (reason === 'USER_SUSPENDED' || reason === 'USER_INACTIVE') { openAccessState('SUSPENDED'); return; }
+    if (reason === 'USER_BAJA') { openAccessState('BAJA'); return; }
+    console.warn('SCaD Residencial authorization denied:', data); setLoggedOut('No fue posible determinar el estado de autorización de tu cuenta.');
+  } catch (error) { console.error('SCaD Residencial authorization:', error); setLoggedOut('No fue posible validar la autorización en este momento.'); }
 }
 
-async function bootstrapAuth() {
-  const callback = await completeOAuthCallback();
-  if (callback.handled && !callback.ok) return;
-  await validateAuthorizedUser();
-}
-
-loginBtn.addEventListener('click', startWixLogin);
-registerBtn.addEventListener('click', startWixLogin);
-
-const sheet = document.getElementById('moduleSheet');
-const sheetTitle = document.getElementById('sheetTitle');
-const sheetText = document.getElementById('sheetText');
-const closeSheet = () => {
-  sheet.classList.remove('open');
-  sheet.setAttribute('aria-hidden', 'true');
-};
-
-document.querySelectorAll('[data-module]').forEach((button) => {
-  button.addEventListener('click', () => {
-    if (appView.hidden) return;
-    const info = moduleInfo[button.dataset.module];
-    if (!info) return;
-    sheetTitle.textContent = info.title;
-    sheetText.textContent = info.text;
-    sheet.classList.add('open');
-    sheet.setAttribute('aria-hidden', 'false');
-  });
+accessForm.addEventListener('submit', async (event) => {
+  event.preventDefault(); requestAccessBtn.disabled = true; accessStatus.textContent = 'Registrando solicitud…';
+  try {
+    const payload = { nombreCompleto: document.getElementById('requestName').value.trim(), telefono: document.getElementById('requestPhone').value.trim(), vivienda: document.getElementById('requestHousing').value.trim() };
+    const response = await wixClient.functions.post(AUTH.requestFunction, { headers: { 'Content-Type': 'application/json' }, params: new URLSearchParams(), body: JSON.stringify(payload) });
+    const data = await response.json();
+    if (!data?.ok) throw new Error(data?.reason || 'REQUEST_NOT_CREATED');
+    openAccessState('PENDING');
+  } catch (error) { console.error('SCaD Residencial access request:', error); accessStatus.textContent = 'No fue posible registrar la solicitud. Intenta nuevamente.'; }
+  finally { requestAccessBtn.disabled = false; }
 });
 
-document.getElementById('sheetClose').addEventListener('click', closeSheet);
-document.getElementById('sheetAction').addEventListener('click', closeSheet);
-sheet.addEventListener('click', (event) => {
-  if (event.target === sheet) closeSheet();
-});
+async function bootstrapAuth() { const callback = await completeOAuthCallback(); if (callback.handled && !callback.ok) return; await validateAuthorizedUser(); }
+loginBtn.addEventListener('click', startWixLogin); registerBtn.addEventListener('click', startWixLogin);
+document.getElementById('accessClose').addEventListener('click', closeAccessSheet);
+
+const sheet = document.getElementById('moduleSheet'); const sheetTitle = document.getElementById('sheetTitle'); const sheetText = document.getElementById('sheetText');
+const closeSheet = () => { sheet.classList.remove('open'); sheet.setAttribute('aria-hidden', 'true'); };
+document.querySelectorAll('[data-module]').forEach(button => button.addEventListener('click', () => { if (appView.hidden) return; const info = moduleInfo[button.dataset.module]; if (!info) return; sheetTitle.textContent = info.title; sheetText.textContent = info.text; sheet.classList.add('open'); sheet.setAttribute('aria-hidden', 'false'); }));
+document.getElementById('sheetClose').addEventListener('click', closeSheet); document.getElementById('sheetAction').addEventListener('click', closeSheet); sheet.addEventListener('click', e => { if (e.target === sheet) closeSheet(); });
 
 bootstrapAuth();
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./service-worker.js').catch(() => {});
-  });
-}
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {}));
