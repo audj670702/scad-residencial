@@ -9,6 +9,14 @@ const client=createClient({auth:OAuthStrategy({clientId:CLIENT_ID,...(stored?{to
 const $=id=>document.getElementById(id);
 let validated=false,validating=false,logoutBypass=false;
 
+function syncAuthTokens(){
+  try{
+    const tokens=JSON.parse(localStorage.getItem(TOKENS_KEY)||'null');
+    if(tokens)client.auth.setTokens(tokens);
+    return !!tokens;
+  }catch{return false}
+}
+
 function getSessionId(){
   let id=localStorage.getItem(INSTANCE_KEY);
   if(id)return id;
@@ -18,6 +26,7 @@ function getSessionId(){
 }
 
 async function postFn(name,payload){
+  syncAuthTokens();
   const r=await client.functions.post(name,{headers:{'Content-Type':'application/json'},params:new URLSearchParams(),body:JSON.stringify(payload)});
   return r.json();
 }
@@ -57,6 +66,7 @@ async function retrySession(){
 async function logoutBlockedSession(){
   const btn=$('sessionLogoutBtn');if(btn)btn.disabled=true;
   try{
+    syncAuthTokens();
     localStorage.removeItem(TOKENS_KEY);
     localStorage.removeItem(INSTANCE_KEY);
     await client.auth.logout(window.location.href);
@@ -73,14 +83,18 @@ async function claimSession(){
   validating=true;
   showGate('Validando sesión','Comprobando la sesión activa.');
   try{
-    if(!(await client.auth.loggedIn())){validating=false;return}
+    syncAuthTokens();
+    if(!(await client.auth.loggedIn())){
+      showGate('No fue posible validar la sesión','La autenticación no quedó disponible para el control de sesión. Vuelve a intentar.',{actions:true});
+      return;
+    }
     const data=await postFn('resSesionAbrir',{sesionId:getSessionId()});
     if(data?.ok){allowApp();return}
     if(data?.reason==='SESION_ACTIVA_EN_OTRA_INSTANCIA'){
       showGate('Sesión activa en otro dispositivo','Esta cuenta ya está siendo utilizada en otro dispositivo. Cierra la sesión activa para continuar en este dispositivo.',{actions:true});
       return;
     }
-    showGate('No fue posible validar la sesión','SCaD Residencial no pudo completar el control de sesión.',{actions:true});
+    showGate('No fue posible validar la sesión',`SCaD Residencial no pudo completar el control de sesión${data?.reason?`: ${data.reason}`:'.'}`,{actions:true});
   }catch(e){
     console.error('SCaD Residencial sesión:',e);
     showGate('No fue posible validar la sesión','Verifica la conexión e intenta nuevamente.',{actions:true});
@@ -89,6 +103,7 @@ async function claimSession(){
 
 async function releaseSession(){
   try{
+    syncAuthTokens();
     if(await client.auth.loggedIn())await postFn('resSesionCerrar',{sesionId:getSessionId()});
   }catch(e){console.warn('SCaD Residencial liberar sesión:',e)}
 }
