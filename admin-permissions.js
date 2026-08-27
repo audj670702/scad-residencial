@@ -41,18 +41,17 @@ async function loadPermission(){
  const block=ensureBlock();if(!block||!selectedUser)return;
  block.hidden=false;
  const toggle=$('adminControlAccessToggle'),note=$('adminControlAccessNote'),status=$('adminControlAccessStatus');
- toggle.disabled=true;status.textContent='Consultando permiso…';note.textContent='';
+ toggle.disabled=true;status.textContent='Consultando permiso…';note.textContent='';note.classList.remove('inherited');
  try{
   const memberId=String(selectedUser.memberId||'').trim();
   const usuarioId=String(selectedUser.id||selectedUser._id||'').trim();
-  const qs=new URLSearchParams({usuarioId,memberId});
-  const r=await client.functions.get(`${FN.get}?${qs.toString()}`),d=await r.json();
+  const d=await postFn(FN.get,{usuarioId,memberId,modulo:'CONTROL_ACCESOS'});
   if(!d?.ok)throw Error(d?.reason||'PERMISO_ERROR');
   toggle.checked=d.effective===true;
   toggle.disabled=d.inherited===true || !memberId;
   if(!memberId){note.textContent='Este usuario todavía no tiene memberId disponible para asignación directa.'}
   else if(d.inherited===true){note.textContent=`Permiso heredado por rol: ${d.role||selectedUser.rolResidencial||'rol asignado'}.`;note.classList.add('inherited')}
-  else{note.classList.remove('inherited');note.textContent=d.direct===true?'Permiso asignado directamente a este usuario.':'Sin permiso directo. Administración puede activarlo para este usuario.'}
+  else{note.textContent=d.direct===true?'Permiso asignado directamente a este usuario.':'Sin permiso directo. Administración puede activarlo para este usuario.'}
   status.textContent='';
  }catch(e){console.error(e);toggle.disabled=true;status.textContent='No fue posible consultar el permiso.'}
 }
