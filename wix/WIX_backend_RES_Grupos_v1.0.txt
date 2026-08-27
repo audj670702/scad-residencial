@@ -1,0 +1,131 @@
+// SCaD Residencial — Gestión de Grupos v1.0
+// Wix Backend Web Module
+// Crear como: backend/resGrupos.web.js
+
+import wixData from 'wix-data';
+import { currentMember } from 'wix-members-backend';
+import { webMethod, Permissions } from 'wix-web-module';
+
+const COL_GRUPOS = 'RES_Grupos';
+const COL_REL = 'RES_Grupos_Usuarios';
+const COL_USUARIOS = 'RES_Usuarios';
+const LIMITE_GRUPOS_ACTIVOS = 5;
+const DATA_OPTS = { suppressAuth: true };
+
+function clean(value) { return String(value ?? '').trim(); }
+function norm(value) { return clean(value).toLocaleLowerCase('es-MX').normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+
+async function requireAdministrador() {
+  let member;
+  try { member = await currentMember.getMember(); } catch (e) { throw new Error('NO_AUTENTICADO'); }
+  const memberId = member?._id;
+  if (!memberId) throw new Error('NO_AUTENTICADO');
+  const q = await wixData.query(COL_USUARIOS).eq('memberId', memberId).limit(1).find(DATA_OPTS);
+  const usuario = q.items[0];
+  if (!usuario || usuario.activo !== true || clean(usuario.rolResidencial) !== 'Administrador') throw new Error('NO_AUTORIZADO');
+  return usuario;
+}
+
+async function findGrupo(grupoId) {
+  const q = await wixData.query(COL_GRUPOS).eq('grupoId', clean(grupoId)).limit(1).find(DATA_OPTS);
+  return q.items[0] || null;
+}
+
+async function countGruposActivos(excluirGrupoId = '') {
+  const q = await wixData.query(COL_GRUPOS).eq('activo', true).limit(100).find(DATA_OPTS);
+  return q.items.filter(g => g.grupoId !== excluirGrupoId).length;
+}
+
+async function nextGrupoId() {
+  const q = await wixData.query(COL_GRUPOS).limit(100).find(DATA_OPTS);
+  let max = 0;
+  for (const g of q.items) {
+    const m = clean(g.grupoId).match(/^GRP-(\d+)$/i);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return `GRP-${String(max + 1).padStart(3, '0')}`;
+}
+
+function publicUser(u) {
+  return { memberId: clean(u.memberId), nombreCompleto: clean(u.nombreCompleto || u.nombre), email: clean(u.email), vivienda: clean(u.vivienda || u.residencia), rolResidencial: clean(u.rolResidencial), activo: u.activo === true };
+}
+
+export const cargarGrupos = webMethod(Permissions.SiteMember, async () => {
+  await requireAdministrador();
+  const [gruposQ, relQ] = await Promise.all([
+    wixData.query(COL_GRUPOS).ascending('nombre').limit(100).find(DATA_OPTS),
+    wixData.query(COL_REL).eq('activo', true).limit(1000).find(DATA_OPTS)
+  ]);
+  const miembrosPorGrupo = {};
+  for (const r of relQ.items) miembrosPorGrupo[r.grupoId] = (miembrosPorGrupo[r.grupoId] || 0) + 1;
+  const activos = gruposQ.items.filter(g => g.activo === true).length;
+  return { ok:true, limite:LIMITE_GRUPOS_ACTIVOS, activos, disponibles:Math.max(0,LIMITE_GRUPOS_ACTIVOS-activos), grupos:gruposQ.items.map(g=>({_id:g._id,grupoId:clean(g.grupoId),nombre:clean(g.nombre),descripcion:clean(g.descripcion),activo:g.activo===true,integrantes:miembrosPorGrupo[g.grupoId]||0})) };
+});
+
+export const crearGrupo = webMethod(Permissions.SiteMember, async (payload = {}) => {
+  await requireAdministrador();
+  const nombre = clean(payload.nombre), descripcion = clean(payload.descripcion);
+  if (!nombre) throw new Error('NOMBRE_REQUERIDO');
+  if (await countGruposActivos() >= LIMITE_GRUPOS_ACTIVOS) throw new Error('LIMITE_5_GRUPOS_ACTIVOS');
+  const duplicado = await wixData.query(COL_GRUPOS).eq('nombre', nombre).limit(1).find(DATA_OPTS);
+  if (duplicado.items.length) throw new Error('NOMBRE_GRUPO_DUPLICADO');
+  const created = await wixData.insert(COL_GRUPOS,{grupoId:await nextGrupoId(),nombre,descripcion,activo:true},DATA_OPTS);
+  return {ok:true,grupo:{_id:created._id,grupoId:created.grupoId,nombre:created.nombre,descripcion:created.descripcion||'',activo:created.activo===true,integrantes:0}};
+});
+
+export const actualizarGrupo = webMethod(Permissions.SiteMember, async (payload = {}) => {
+  await requireAdministrador();
+  const grupoId=clean(payload.grupoId), nombre=clean(payload.nombre), descripcion=clean(payload.descripcion);
+  if (!grupoId) throw new Error('GRUPO_ID_REQUERIDO');
+  if (!nombre) throw new Error('NOMBRE_REQUERIDO');
+  const grupo=await findGrupo(grupoId); if(!grupo) throw new Error('GRUPO_NO_ENCONTRADO');
+  const duplicado=await wixData.query(COL_GRUPOS).eq('nombre',nombre).limit(10).find(DATA_OPTS);
+  if(duplicado.items.some(g=>g.grupoId!==grupoId)) throw new Error('NOMBRE_GRUPO_DUPLICADO');
+  grupo.nombre=nombre; grupo.descripcion=descripcion;
+  const updated=await wixData.update(COL_GRUPOS,grupo,DATA_OPTS);
+  return {ok:true,grupo:updated};
+});
+
+export const cambiarEstadoGrupo = webMethod(Permissions.SiteMember, async (grupoId, activo) => {
+  await requireAdministrador(); grupoId=clean(grupoId);
+  const grupo=await findGrupo(grupoId); if(!grupo) throw new Error('GRUPO_NO_ENCONTRADO');
+  const nuevoEstado=activo===true;
+  if(nuevoEstado && grupo.activo!==true && await countGruposActivos(grupoId)>=LIMITE_GRUPOS_ACTIVOS) throw new Error('LIMITE_5_GRUPOS_ACTIVOS');
+  grupo.activo=nuevoEstado; const updated=await wixData.update(COL_GRUPOS,grupo,DATA_OPTS);
+  return {ok:true,grupoId,activo:updated.activo===true};
+});
+
+export const buscarUsuarios = webMethod(Permissions.SiteMember, async (texto='') => {
+  await requireAdministrador(); const term=norm(texto); if(term.length<2) return {ok:true,usuarios:[]};
+  const q=await wixData.query(COL_USUARIOS).eq('activo',true).limit(500).find(DATA_OPTS);
+  const usuarios=q.items.filter(u=>[u.nombreCompleto,u.nombre,u.email,u.vivienda,u.residencia,u.rolResidencial].map(norm).join(' | ').includes(term)).slice(0,25).map(publicUser);
+  return {ok:true,usuarios};
+});
+
+export const cargarIntegrantesGrupo = webMethod(Permissions.SiteMember, async (grupoId) => {
+  await requireAdministrador(); grupoId=clean(grupoId);
+  if(!await findGrupo(grupoId)) throw new Error('GRUPO_NO_ENCONTRADO');
+  const relQ=await wixData.query(COL_REL).eq('grupoId',grupoId).eq('activo',true).limit(500).find(DATA_OPTS);
+  const integrantes=[];
+  for(const rel of relQ.items){ const uq=await wixData.query(COL_USUARIOS).eq('memberId',rel.memberId).limit(1).find(DATA_OPTS); if(uq.items[0]) integrantes.push(publicUser(uq.items[0])); }
+  integrantes.sort((a,b)=>a.nombreCompleto.localeCompare(b.nombreCompleto,'es'));
+  return {ok:true,grupoId,integrantes};
+});
+
+export const agregarIntegranteGrupo = webMethod(Permissions.SiteMember, async (grupoId, memberId) => {
+  await requireAdministrador(); grupoId=clean(grupoId); memberId=clean(memberId);
+  if(!grupoId||!memberId) throw new Error('DATOS_INCOMPLETOS');
+  if(!await findGrupo(grupoId)) throw new Error('GRUPO_NO_ENCONTRADO');
+  const uq=await wixData.query(COL_USUARIOS).eq('memberId',memberId).limit(1).find(DATA_OPTS); const usuario=uq.items[0];
+  if(!usuario||usuario.activo!==true) throw new Error('USUARIO_NO_DISPONIBLE');
+  const rq=await wixData.query(COL_REL).eq('grupoId',grupoId).eq('memberId',memberId).limit(1).find(DATA_OPTS);
+  if(rq.items[0]){ const rel=rq.items[0]; if(rel.activo===true) return {ok:true,yaExistia:true}; rel.activo=true; await wixData.update(COL_REL,rel,DATA_OPTS); return {ok:true,reactivado:true}; }
+  const relacionId=`GRU-${Date.now()}-${Math.random().toString(36).slice(2,7).toUpperCase()}`;
+  await wixData.insert(COL_REL,{relacionId,grupoId,memberId,activo:true},DATA_OPTS); return {ok:true,relacionId};
+});
+
+export const quitarIntegranteGrupo = webMethod(Permissions.SiteMember, async (grupoId, memberId) => {
+  await requireAdministrador(); grupoId=clean(grupoId); memberId=clean(memberId);
+  const rq=await wixData.query(COL_REL).eq('grupoId',grupoId).eq('memberId',memberId).eq('activo',true).limit(1).find(DATA_OPTS);
+  const rel=rq.items[0]; if(!rel) return {ok:true,yaInactivo:true}; rel.activo=false; await wixData.update(COL_REL,rel,DATA_OPTS); return {ok:true};
+});
