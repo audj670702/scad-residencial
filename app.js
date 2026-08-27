@@ -1,4 +1,5 @@
 import { createClient, OAuthStrategy } from 'https://esm.sh/@wix/sdk@1.21.16';
+import { functions } from 'https://esm.sh/@wix/http-functions';
 
 const moduleInfo = {
   mensajeria: { title: 'Mensajería', text: 'Canal de comunicación y avisos para residentes.' },
@@ -12,7 +13,7 @@ const moduleInfo = {
 const AUTH = {
   clientId: '2a7eb7cd-240a-422b-9fe2-10f5dec36b5e',
   redirectUri: 'https://residencial.scad.mx/',
-  authorizationEndpoint: ''
+  authorizationFunction: 'resAuthorization'
 };
 
 const STORAGE = {
@@ -32,7 +33,8 @@ const wixClient = createClient({
   auth: OAuthStrategy({
     clientId: AUTH.clientId,
     ...(storedTokens ? { tokens: storedTokens } : {})
-  })
+  }),
+  modules: { functions }
 });
 
 const authView = document.getElementById('authView');
@@ -49,7 +51,7 @@ function setAuthenticated(user) {
   appView.hidden = false;
   const name = user?.nombreCompleto || user?.nombre || 'Residente';
   residentName.textContent = name;
-  residentMeta.textContent = user?.vivienda || 'Usuario autorizado';
+  residentMeta.textContent = user?.rolResidencial || 'Usuario autorizado';
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join('').toUpperCase();
   residentAvatar.textContent = initials || 'R';
 }
@@ -57,6 +59,8 @@ function setAuthenticated(user) {
 function setLoggedOut(message = '') {
   appView.hidden = true;
   authView.hidden = false;
+  loginBtn.disabled = false;
+  registerBtn.disabled = false;
   if (message) authNote.textContent = message;
 }
 
@@ -84,19 +88,13 @@ async function startWixLogin() {
     );
 
     localStorage.setItem(STORAGE.oauthData, JSON.stringify(oauthData));
-
-    // Wix login page flow: use the SDK default response mode (URL fragment),
-    // which is the mode parsed by parseFromUrl().
     const result = await wixClient.auth.getAuthUrl(oauthData);
-
     const authUrl = typeof result === 'string' ? result : result?.authUrl;
     if (!authUrl) throw new Error('WIX_AUTH_URL_NOT_AVAILABLE');
 
     window.location.assign(authUrl);
   } catch (error) {
     console.error('SCaD Residencial OAuth start:', error);
-    loginBtn.disabled = false;
-    registerBtn.disabled = false;
     setLoggedOut('No fue posible iniciar la autenticación con Wix.');
   }
 }
@@ -106,22 +104,14 @@ async function completeOAuthCallback() {
 
   try {
     const parsed = await wixClient.auth.parseFromUrl();
-    if (parsed?.error) {
-      throw new Error(parsed.errorDescription || parsed.error);
-    }
-    if (!parsed?.code || !parsed?.state) {
-      throw new Error('OAUTH_CODE_STATE_NOT_FOUND');
-    }
+    if (parsed?.error) throw new Error(parsed.errorDescription || parsed.error);
+    if (!parsed?.code || !parsed?.state) throw new Error('OAUTH_CODE_STATE_NOT_FOUND');
 
     const saved = localStorage.getItem(STORAGE.oauthData);
     if (!saved) throw new Error('OAUTH_DATA_NOT_FOUND');
 
     const oauthData = JSON.parse(saved);
-    const tokens = await wixClient.auth.getMemberTokens(
-      parsed.code,
-      parsed.state,
-      oauthData
-    );
+    const tokens = await wixClient.auth.getMemberTokens(parsed.code, parsed.state, oauthData);
 
     wixClient.auth.setTokens(tokens);
     localStorage.setItem(STORAGE.tokens, JSON.stringify(tokens));
@@ -145,28 +135,19 @@ async function validateAuthorizedUser() {
     return;
   }
 
-  if (!AUTH.authorizationEndpoint) {
-    setLoggedOut('Sesión Wix iniciada correctamente. Falta conectar la validación del memberId contra RES_Usuarios antes de habilitar los módulos.');
-    return;
-  }
-
   try {
-    const headers = await wixClient.auth.getAuthHeaders();
-    const response = await fetch(AUTH.authorizationEndpoint, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-        ...headers
-      }
-    });
-
-    if (!response.ok) throw new Error('NO_AUTH');
+    authNote.textContent = 'Validando autorización en SCaD Residencial…';
+    const response = await wixClient.functions.get(AUTH.authorizationFunction);
     const data = await response.json();
-    if (!data?.authorized) throw new Error('NO_AUTH');
-    setAuthenticated(data.user || {});
+
+    if (!data?.authorized || !data?.user) {
+      throw new Error(data?.reason || 'NO_AUTH');
+    }
+
+    setAuthenticated(data.user);
   } catch (error) {
     console.error('SCaD Residencial authorization:', error);
-    setLoggedOut('La cuenta está autenticada en Wix, pero no está autorizada para SCaD Residencial.');
+    setLoggedOut('La sesión Wix es válida, pero este usuario no está autorizado en SCaD Residencial.');
   }
 }
 
