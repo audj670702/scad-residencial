@@ -24,45 +24,71 @@ function ensureInstallUI(){
   if($('installAppBtn'))return;
   const topbar=document.querySelector('.topbar');
   if(topbar)topbar.insertAdjacentHTML('beforeend','<button class="install-app-btn" id="installAppBtn" type="button" aria-label="Instalar SCaD Residencial"><span class="install-app-icon">⇩</span><span>Instalar app</span></button>');
-  document.body.insertAdjacentHTML('beforeend',`<div class="sheet" id="installAppSheet"><div class="sheet-panel install-app-panel"><button class="sheet-close" id="installAppClose" type="button">×</button><p class="eyebrow">SCaD RESIDENCIAL</p><h2 id="installAppTitle">Instalar app</h2><div id="installAppContent"></div><div class="install-app-actions"><button class="primary-btn" id="installAppAction" type="button" hidden>Instalar</button></div></div></div>`);
+  document.body.insertAdjacentHTML('beforeend',`<div class="sheet" id="installAppSheet"><div class="sheet-panel install-app-panel"><button class="sheet-close" id="installAppClose" type="button">×</button><p class="eyebrow">SCaD RESIDENCIAL</p><h2 id="installAppTitle">Instalar app</h2><div id="installAppContent"></div></div></div>`);
   $('installAppBtn')?.addEventListener('click',openInstall);
   $('installAppClose')?.addEventListener('click',closeInstall);
   $('installAppSheet')?.addEventListener('click',e=>{if(e.target===$('installAppSheet'))closeInstall()});
   updateVisibility();
 }
-function updateVisibility(){const btn=$('installAppBtn');if(btn)btn.hidden=isStandalone()}
+
+function updateVisibility(){
+  const btn=$('installAppBtn');
+  if(!btn)return;
+  if(isStandalone()){btn.hidden=true;return}
+  // iOS necesita instrucciones manuales. En el resto sólo mostramos el botón
+  // cuando el navegador confirma que la PWA es instalable.
+  btn.hidden=!(isIOS()||!!deferredInstallPrompt);
+}
+
 function closeInstall(){$('installAppSheet')?.classList.remove('open')}
 
 function renderIOS(){
   $('installAppTitle').textContent='Instalar en iPhone o iPad';
   $('installAppContent').innerHTML=`<div class="install-steps"><div><span>1</span><p>Abre SCaD Residencial en <strong>Safari</strong>.</p></div><div><span>2</span><p>Toca <strong>Compartir</strong> <b class="share-glyph">□↑</b>.</p></div><div><span>3</span><p>Selecciona <strong>Agregar a pantalla de inicio</strong>.</p></div><div><span>4</span><p>Confirma con <strong>Agregar</strong>.</p></div></div>`;
-  $('installAppAction').hidden=true;
 }
-function renderAndroid(){
-  $('installAppTitle').textContent='Instalar en Android';
-  if(deferredInstallPrompt){
-    $('installAppContent').innerHTML='<p class="install-intro">Instala SCaD Residencial para abrirla directamente desde tu pantalla de inicio.</p>';
-    const action=$('installAppAction');action.hidden=false;action.textContent='⇩ Instalar';action.onclick=promptInstall;
-  }else{
-    $('installAppContent').innerHTML=`<div class="install-steps"><div><span>1</span><p>Abre SCaD Residencial en <strong>Chrome</strong>.</p></div><div><span>2</span><p>Toca el menú <strong>⋮</strong>.</p></div><div><span>3</span><p>Selecciona <strong>Instalar app</strong> o <strong>Agregar a pantalla principal</strong>.</p></div></div>`;
-    $('installAppAction').hidden=true;
-  }
-}
-function renderGeneric(){
-  $('installAppTitle').textContent='Instalar SCaD Residencial';
-  if(deferredInstallPrompt){
-    $('installAppContent').innerHTML='<p class="install-intro">Puedes instalar SCaD Residencial en este dispositivo.</p>';
-    const action=$('installAppAction');action.hidden=false;action.textContent='⇩ Instalar';action.onclick=promptInstall;
-  }else{
-    $('installAppContent').innerHTML='<p class="install-intro">Usa las opciones de tu navegador para instalar la aplicación o agregarla a la pantalla de inicio.</p>';
-    $('installAppAction').hidden=true;
-  }
-}
-function openInstall(){if(isStandalone())return;if(isIOS())renderIOS();else if(isAndroid())renderAndroid();else renderGeneric();$('installAppSheet')?.classList.add('open')}
-async function promptInstall(){if(!deferredInstallPrompt)return;deferredInstallPrompt.prompt();try{await deferredInstallPrompt.userChoice}catch{}deferredInstallPrompt=null;closeInstall();updateVisibility()}
 
-window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e;updateVisibility()});
-window.addEventListener('appinstalled',()=>{deferredInstallPrompt=null;closeInstall();updateVisibility()});
+function renderAndroidManual(){
+  $('installAppTitle').textContent='Instalar en Android';
+  $('installAppContent').innerHTML=`<div class="install-steps"><div><span>1</span><p>Abre SCaD Residencial en <strong>Chrome</strong>.</p></div><div><span>2</span><p>Toca el menú <strong>⋮</strong>.</p></div><div><span>3</span><p>Selecciona <strong>Instalar app</strong> o <strong>Agregar a pantalla principal</strong>.</p></div></div>`;
+}
+
+async function openInstall(){
+  if(isStandalone())return;
+  // Chrome/Edge/Android: disparar directamente el instalador nativo.
+  if(deferredInstallPrompt){await promptInstall();return}
+  // iOS no ofrece beforeinstallprompt: conserva guía manual específica.
+  if(isIOS()){
+    renderIOS();
+    $('installAppSheet')?.classList.add('open');
+    return;
+  }
+  // Respaldo Android excepcional: sólo si el botón ya era visible por otro motivo.
+  if(isAndroid()){
+    renderAndroidManual();
+    $('installAppSheet')?.classList.add('open');
+  }
+}
+
+async function promptInstall(){
+  if(!deferredInstallPrompt)return;
+  const prompt=deferredInstallPrompt;
+  deferredInstallPrompt=null;
+  prompt.prompt();
+  try{await prompt.userChoice}catch{}
+  closeInstall();
+  updateVisibility();
+}
+
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();
+  deferredInstallPrompt=e;
+  updateVisibility();
+});
+window.addEventListener('appinstalled',()=>{
+  deferredInstallPrompt=null;
+  closeInstall();
+  updateVisibility();
+});
 window.matchMedia?.('(display-mode: standalone)')?.addEventListener?.('change',updateVisibility);
 
 ensureHead();
