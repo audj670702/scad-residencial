@@ -66,6 +66,12 @@ function clearAuthCallbackFromUrl() {
   }
 }
 
+function hasOAuthCallback() {
+  const query = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  return query.has('code') || query.has('error') || hash.has('code') || hash.has('error');
+}
+
 async function startWixLogin() {
   try {
     loginBtn.disabled = true;
@@ -77,11 +83,11 @@ async function startWixLogin() {
       window.location.href
     );
 
-    sessionStorage.setItem(STORAGE.oauthData, JSON.stringify(oauthData));
+    localStorage.setItem(STORAGE.oauthData, JSON.stringify(oauthData));
 
-    const result = await wixClient.auth.getAuthUrl(oauthData, {
-      responseMode: 'query'
-    });
+    // Wix login page flow: use the SDK default response mode (URL fragment),
+    // which is the mode parsed by parseFromUrl().
+    const result = await wixClient.auth.getAuthUrl(oauthData);
 
     const authUrl = typeof result === 'string' ? result : result?.authUrl;
     if (!authUrl) throw new Error('WIX_AUTH_URL_NOT_AVAILABLE');
@@ -96,16 +102,18 @@ async function startWixLogin() {
 }
 
 async function completeOAuthCallback() {
-  const params = new URLSearchParams(window.location.search);
-  if (!params.has('code') && !params.has('error')) return false;
+  if (!hasOAuthCallback()) return { handled: false, ok: false };
 
   try {
     const parsed = await wixClient.auth.parseFromUrl();
     if (parsed?.error) {
       throw new Error(parsed.errorDescription || parsed.error);
     }
+    if (!parsed?.code || !parsed?.state) {
+      throw new Error('OAUTH_CODE_STATE_NOT_FOUND');
+    }
 
-    const saved = sessionStorage.getItem(STORAGE.oauthData);
+    const saved = localStorage.getItem(STORAGE.oauthData);
     if (!saved) throw new Error('OAUTH_DATA_NOT_FOUND');
 
     const oauthData = JSON.parse(saved);
@@ -117,15 +125,15 @@ async function completeOAuthCallback() {
 
     wixClient.auth.setTokens(tokens);
     localStorage.setItem(STORAGE.tokens, JSON.stringify(tokens));
-    sessionStorage.removeItem(STORAGE.oauthData);
+    localStorage.removeItem(STORAGE.oauthData);
     clearAuthCallbackFromUrl();
-    return true;
+    return { handled: true, ok: true };
   } catch (error) {
     console.error('SCaD Residencial OAuth callback:', error);
-    sessionStorage.removeItem(STORAGE.oauthData);
+    localStorage.removeItem(STORAGE.oauthData);
     clearAuthCallbackFromUrl();
     setLoggedOut('Wix devolvió la autenticación, pero no fue posible completar la sesión.');
-    return true;
+    return { handled: true, ok: false };
   }
 }
 
@@ -163,7 +171,8 @@ async function validateAuthorizedUser() {
 }
 
 async function bootstrapAuth() {
-  await completeOAuthCallback();
+  const callback = await completeOAuthCallback();
+  if (callback.handled && !callback.ok) return;
   await validateAuthorizedUser();
 }
 
