@@ -30,7 +30,7 @@ function inject(){
     },true);
   }
   const footer=document.querySelector('.app-footer span');
-  if(footer)footer.textContent='v0.27';
+  if(footer)footer.textContent='v0.29';
 }
 
 function closeResidentDocs(){
@@ -93,3 +93,4 @@ async function openResidentDocs(){
 }
 
 inject();
+import('./programming.js');
