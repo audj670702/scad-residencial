@@ -18,23 +18,21 @@
 
   <main class="app-shell">
     <section class="auth-view" id="authView" aria-label="Inicio de sesión">
-      <div class="auth-copy">
-        <h1>Acceso de residentes</h1>
-        <p>Inicia sesión con tu cuenta registrada para acceder a SCaD Residencial.</p>
-      </div>
-      <div class="auth-actions">
-        <button class="auth-primary" id="loginBtn">Iniciar sesión</button>
-        <button class="auth-secondary" id="registerBtn">Registrarme</button>
-      </div>
+      <div class="auth-copy"><h1>Acceso de residentes</h1><p>Inicia sesión con tu cuenta registrada para acceder a SCaD Residencial.</p></div>
+      <div class="auth-actions"><button class="auth-primary" id="loginBtn">Iniciar sesión</button><button class="auth-secondary" id="registerBtn">Registrarme</button></div>
       <p class="auth-note" id="authNote">La autenticación se realizará mediante Wix Members y la validación posterior del usuario en SCaD Residencial.</p>
     </section>
 
     <section class="app-view" id="appView" hidden>
       <section class="resident-row" aria-label="Identidad del residente">
         <div class="resident-avatar" id="residentAvatar" aria-hidden="true">NR</div>
-        <div class="resident-copy">
-          <strong class="resident-name" id="residentName">Residente</strong>
-          <span class="resident-meta" id="residentMeta">Usuario autorizado</span>
+        <div class="resident-copy"><strong class="resident-name" id="residentName">Residente</strong><span class="resident-meta" id="residentMeta">Usuario autorizado</span></div>
+      </section>
+
+      <section class="admin-section" id="adminSection" hidden>
+        <h1 class="section-title">Administración</h1>
+        <div class="modules-list">
+          <button class="module-row module-admin" data-module="administracion"><span class="module-icon">⚙️</span><span class="module-copy"><span class="module-title">Panel de Administración</span><span class="module-desc">Gestión y control de SCaD Residencial</span></span><span class="module-arrow">›</span></button>
         </div>
       </section>
 
@@ -51,34 +49,12 @@
       </section>
     </section>
 
-    <footer class="app-footer"><a href="#">Política de privacidad</a><span>v0.11</span></footer>
+    <footer class="app-footer"><a href="#">Política de privacidad</a><span>v0.12</span></footer>
   </main>
 
-  <div class="sheet" id="accessSheet" aria-hidden="true">
-    <div class="sheet-panel">
-      <button class="sheet-close" id="accessClose" aria-label="Cerrar">×</button>
-      <p class="eyebrow">SCaD RESIDENCIAL</p>
-      <h2 id="accessTitle">Cuenta no activada</h2>
-      <p id="accessText">Tu cuenta Wix está identificada, pero todavía no tienes acceso a SCaD Residencial.</p>
-      <form id="accessForm" class="access-form">
-        <label>Nombre completo<input id="requestName" name="nombreCompleto" type="text" autocomplete="name" required /></label>
-        <label>Teléfono<input id="requestPhone" name="telefono" type="tel" autocomplete="tel" /></label>
-        <label>Vivienda / referencia<input id="requestHousing" name="vivienda" type="text" required /></label>
-        <button class="primary-btn" id="requestAccessBtn" type="submit">Solicitar activación</button>
-      </form>
-      <p class="access-status" id="accessStatus"></p>
-    </div>
-  </div>
+  <div class="sheet" id="accessSheet" aria-hidden="true"><div class="sheet-panel"><button class="sheet-close" id="accessClose" aria-label="Cerrar">×</button><p class="eyebrow">SCaD RESIDENCIAL</p><h2 id="accessTitle">Cuenta no activada</h2><p id="accessText">Tu cuenta Wix está identificada, pero todavía no tienes acceso a SCaD Residencial.</p><form id="accessForm" class="access-form"><label>Nombre completo<input id="requestName" name="nombreCompleto" type="text" autocomplete="name" required /></label><label>Teléfono<input id="requestPhone" name="telefono" type="tel" autocomplete="tel" /></label><label>Vivienda / referencia<input id="requestHousing" name="vivienda" type="text" required /></label><button class="primary-btn" id="requestAccessBtn" type="submit">Solicitar activación</button></form><p class="access-status" id="accessStatus"></p></div></div>
 
-  <div class="sheet" id="moduleSheet" aria-hidden="true">
-    <div class="sheet-panel">
-      <button class="sheet-close" id="sheetClose" aria-label="Cerrar">×</button>
-      <p class="eyebrow">SCaD RESIDENCIAL</p>
-      <h2 id="sheetTitle">Módulo</h2>
-      <p id="sheetText">Vista conceptual en construcción.</p>
-      <button class="primary-btn" id="sheetAction">Entendido</button>
-    </div>
-  </div>
+  <div class="sheet" id="moduleSheet" aria-hidden="true"><div class="sheet-panel"><button class="sheet-close" id="sheetClose" aria-label="Cerrar">×</button><p class="eyebrow">SCaD RESIDENCIAL</p><h2 id="sheetTitle">Módulo</h2><p id="sheetText">Vista conceptual en construcción.</p><button class="primary-btn" id="sheetAction">Entendido</button></div></div>
   <script type="module" src="app.js"></script>
 </body>
 </html>
