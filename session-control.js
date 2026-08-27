@@ -116,3 +116,4 @@ function hookLogout(){
 ensureGate();
 watchApp();
 hookLogout();
+import('./install-app.js');
