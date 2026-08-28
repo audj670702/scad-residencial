@@ -58,3 +58,4 @@ function ensurePrivacyUI(){
 function closePrivacy(){$('privacySheet')?.classList.remove('open')}
 
 ensureHead();ensureInstallUI();ensurePrivacyUI();
+import('./profile.js').catch(e=>console.warn('SCaD perfil no disponible:',e));
