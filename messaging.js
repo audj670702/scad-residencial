@@ -16,6 +16,8 @@ let allUsers=[];
 let pendingSnapshot=null;
 let pollTimer=null;
 let muted=localStorage.getItem(MUTE_KEY)==='1';
+let adminMode=false;
+let returnView='appView';
 
 const sounds={
   sent:new Audio('./assets/mensaje-enviado.mp3'),
@@ -42,7 +44,7 @@ function ensureUi(){
   view.innerHTML=`
     <div class="view-head messaging-head">
       <button class="back-btn" id="messagingBack" type="button">‹</button>
-      <div class="messaging-head-copy"><span class="view-kicker">COMUNICACIÓN</span><h1>Mensajería</h1></div>
+      <div class="messaging-head-copy"><span class="view-kicker" id="messagingKicker">COMUNICACIÓN</span><h1 id="messagingTitle">Mensajería</h1></div>
       <button class="messaging-mute" id="messagingMute" type="button" aria-label="Silenciar sonidos"></button>
     </div>
     <div id="messagingInboxPanel">
@@ -90,10 +92,16 @@ function ensureUi(){
 }
 
 function topViews(){return [...document.querySelectorAll('.app-shell > section[id]')]}
-function showMessaging(){topViews().forEach(v=>v.hidden=v.id!=='messagingView');$('messagingView').hidden=false}
-function closeMessaging(){showInboxPanel();$('messagingView').hidden=true;const app=$('appView');if(app)app.hidden=false}
-function showInboxPanel(){activeConversation=null;$('messagingThreadPanel').hidden=true;$('messagingInboxPanel').hidden=false;loadInbox()}
+function showMessaging(fromAdmin=false){adminMode=fromAdmin;returnView=fromAdmin?'adminView':'appView';topViews().forEach(v=>v.hidden=v.id!=='messagingView');$('messagingView').hidden=false;updateModeUi()}
+function closeMessaging(){showInboxPanel(false);$('messagingView').hidden=true;const target=$(returnView)||$('appView');if(target)target.hidden=false}
+function showInboxPanel(reload=true){activeConversation=null;$('messagingThreadPanel').hidden=true;$('messagingInboxPanel').hidden=false;if(reload)loadInbox()}
 function showThreadPanel(){$('messagingInboxPanel').hidden=true;$('messagingThreadPanel').hidden=false}
+function updateModeUi(){
+  $('messagingKicker').textContent=adminMode?'ADMINISTRACIÓN':'COMUNICACIÓN';
+  $('messagingTitle').textContent=adminMode?'Mensajería institucional':'Mensajería';
+  $('messagingNew').hidden=adminMode;
+  $('messagingAdminShortcut').hidden=adminMode;
+}
 
 function badge(){
   const button=document.querySelector('[data-module="mensajeria"]');
@@ -103,35 +111,54 @@ function badge(){
   return b;
 }
 function setBadge(n){const b=badge();if(!b)return;const total=Number(n||0);b.textContent=total>99?'99+':String(total);b.hidden=total<1}
+function setAdminBadge(n){const b=$('adminMessagingBadge');if(!b)return;const total=Number(n||0);b.textContent=total>99?'99+':String(total);b.hidden=total<1}
+
+function adminPanelAvailable(){const section=$('adminSection');return !!section&&!section.hidden}
+function syncAdminEntry(){
+  const menu=document.querySelector('#adminView .admin-menu');
+  if(!menu)return;
+  let card=$('openAdminMessagingBtn');
+  if(!adminPanelAvailable()){if(card)card.remove();return}
+  if(card)return;
+  card=document.createElement('button');
+  card.className='admin-card admin-messaging-card';
+  card.id='openAdminMessagingBtn';
+  card.type='button';
+  card.innerHTML='<span class="admin-card-icon">💬</span><span><strong>Mensajería</strong><small>Bandeja institucional de Administración</small></span><b class="admin-messaging-badge" id="adminMessagingBadge" hidden>0</b><span class="module-arrow">›</span>';
+  card.addEventListener('click',()=>openMessaging(true));
+  menu.appendChild(card);
+}
 
 function updateMuteButton(){const b=$('messagingMute');if(!b)return;b.textContent=muted?'🔇':'🔊';b.title=muted?'Activar sonidos':'Silenciar sonidos';b.setAttribute('aria-label',b.title)}
 function toggleMute(){muted=!muted;localStorage.setItem(MUTE_KEY,muted?'1':'0');updateMuteButton()}
 
 function conversationTitle(c){
-  if(String(c.origenTipo||'').toUpperCase()==='ADMINISTRACION' && String(c.memberIdCreador||'')===currentMemberId)return'Administración';
+  if(String(c.origenTipo||'').toUpperCase()==='ADMINISTRACION'&&String(c.memberIdCreador||'')===currentMemberId)return'Administración';
   return c.interlocutor?.nombreCompleto||c.asunto||'Conversación';
 }
 function conversationMeta(c){
-  if(String(c.origenTipo||'').toUpperCase()==='ADMINISTRACION')return'Canal institucional';
+  if(String(c.origenTipo||'').toUpperCase()==='ADMINISTRACION')return adminMode?'Mensaje a Administración':'Canal institucional';
   const p=c.interlocutor||{};return[p.rolResidencial,p.viviendaId].filter(Boolean).join(' · ')
 }
 function initials(name){return String(name||'U').split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'U'}
 
+function visibleInbox(){return adminMode?inbox.filter(c=>String(c.origenTipo||'').toUpperCase()==='ADMINISTRACION'):inbox}
 function renderInbox(){
   const root=$('messagingInbox');if(!root)return;
   const q=String($('messagingSearch')?.value||'').trim().toLowerCase();
-  const list=inbox.filter(c=>!q||[conversationTitle(c),conversationMeta(c),c.ultimoMensaje?.mensaje].some(v=>String(v||'').toLowerCase().includes(q)));
-  if(!list.length){root.innerHTML='<div class="empty-state"><strong>Sin conversaciones</strong><span>Inicia una conversación con otro usuario o con Administración.</span></div>';return}
+  const list=visibleInbox().filter(c=>!q||[conversationTitle(c),conversationMeta(c),c.ultimoMensaje?.mensaje].some(v=>String(v||'').toLowerCase().includes(q)));
+  if(!list.length){root.innerHTML=adminMode?'<div class="empty-state"><strong>Sin mensajes para Administración</strong><span>No hay conversaciones institucionales en esta bandeja.</span></div>':'<div class="empty-state"><strong>Sin conversaciones</strong><span>Inicia una conversación con otro usuario o con Administración.</span></div>';return}
   root.innerHTML=list.map(c=>{const title=conversationTitle(c),last=c.ultimoMensaje?.mensaje||'Sin mensajes todavía',n=Number(c.pendientes||0);return `<button class="messaging-conversation" type="button" data-conversation="${esc(c.conversacionId)}"><span class="messaging-avatar">${esc(initials(title))}</span><span class="messaging-conversation-copy"><strong>${esc(title)}</strong><small>${esc(last)}</small><em>${esc(conversationMeta(c))}</em></span><span class="messaging-conversation-tail"><time>${esc(fmtDate(c.fechaUltimoMensaje||c.ultimoMensaje?.fechaEnvio))}</time>${n?`<b>${n>99?'99+':n}</b>`:''}</span></button>`}).join('');
   root.querySelectorAll('[data-conversation]').forEach(b=>b.onclick=()=>openConversation(b.dataset.conversation));
 }
 
 async function loadInbox(){
+  syncAdminEntry();
   const root=$('messagingInbox');if(root)root.innerHTML='<div class="empty-state"><strong>Cargando mensajes…</strong><span>Consultando tu bandeja.</span></div>';
-  try{const d=await getFn(FN.inbox);if(!d?.ok)throw Error(d?.reason||'MENSAJERIA_ERROR');currentMemberId=d.memberId||currentMemberId;inbox=Array.isArray(d.conversaciones)?d.conversaciones:[];setBadge(d.pendientesTotal||0);renderInbox()}catch(e){console.error('Mensajería bandeja:',e);if(root)root.innerHTML='<div class="empty-state"><strong>No fue posible cargar Mensajería</strong><span>Verifica la conexión e intenta nuevamente.</span></div>'}
+  try{const d=await getFn(FN.inbox);if(!d?.ok)throw Error(d?.reason||'MENSAJERIA_ERROR');currentMemberId=d.memberId||currentMemberId;inbox=Array.isArray(d.conversaciones)?d.conversaciones:[];setBadge(d.pendientesTotal||0);setAdminBadge(d.pendientesAdministracion||0);renderInbox()}catch(e){console.error('Mensajería bandeja:',e);if(root)root.innerHTML='<div class="empty-state"><strong>No fue posible cargar Mensajería</strong><span>Verifica la conexión e intenta nuevamente.</span></div>'}
 }
 
-async function openMessaging(){ensureUi();showMessaging();showInboxPanel()}
+async function openMessaging(fromAdmin=false){ensureUi();syncAdminEntry();showMessaging(fromAdmin);showInboxPanel()}
 
 async function openConversation(id){
   const c=inbox.find(x=>String(x.conversacionId)===String(id));
@@ -146,6 +173,8 @@ async function openConversation(id){
     activeConversation={...(c||{}),...(d.conversacion||{}),conversacionId:id};
     renderThread(d.mensajes||[]);
     await postFn(FN.read,{conversacionId:id}).catch(()=>null);
+    await loadInbox();
+    showThreadPanel();
     refreshPending(false);
   }catch(e){console.error('Mensajería conversación:',e);$('messagingThread').innerHTML='<div class="empty-state"><strong>No fue posible abrir la conversación</strong></div>'}
 }
@@ -186,9 +215,10 @@ async function openAdministration(){
 
 async function refreshPending(sound=true){
   try{
+    syncAdminEntry();
     if(!(await client.auth.loggedIn()))return;
     const d=await getFn(FN.pending);if(!d?.ok)return;
-    const n=Number(d.pendientesTotal||0);setBadge(n);
+    const n=Number(d.pendientesTotal||0);setBadge(n);setAdminBadge(d.pendientesAdministracion||0);
     if(pendingSnapshot===null){pendingSnapshot=n;return}
     if(sound&&n>pendingSnapshot)play('pending');
     pendingSnapshot=n;
@@ -199,10 +229,13 @@ function startPolling(){if(pollTimer)return;refreshPending(false);pollTimer=setI
 ensureCss();
 ensureUi();
 badge();
+syncAdminEntry();
+const adminSection=$('adminSection');
+if(adminSection)new MutationObserver(syncAdminEntry).observe(adminSection,{attributes:true,attributeFilter:['hidden']});
 document.addEventListener('click',e=>{
   const b=e.target.closest?.('[data-module="mensajeria"]');
   if(!b)return;
-  e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openMessaging();
+  e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openMessaging(false);
 },true);
 
 setTimeout(startPolling,1200);
