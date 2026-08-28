@@ -9,14 +9,9 @@ function ensureHead(){
   if(!document.querySelector('link[rel="apple-touch-icon"]')){
     const icon=document.createElement('link');icon.rel='apple-touch-icon';icon.href='assets/icon-192.png';document.head.appendChild(icon);
   }
-  const metas=[
-    ['apple-mobile-web-app-capable','yes'],
-    ['apple-mobile-web-app-status-bar-style','default'],
-    ['apple-mobile-web-app-title','SCaD Residencial']
-  ];
+  const metas=[['apple-mobile-web-app-capable','yes'],['apple-mobile-web-app-status-bar-style','default'],['apple-mobile-web-app-title','SCaD Residencial']];
   metas.forEach(([name,content])=>{if(!document.querySelector(`meta[name="${name}"]`)){const m=document.createElement('meta');m.name=name;m.content=content;document.head.appendChild(m)}});
 }
-
 function isStandalone(){return window.matchMedia?.('(display-mode: standalone)')?.matches===true||window.navigator.standalone===true}
 function isIOS(){return /iphone|ipad|ipod/i.test(navigator.userAgent||'')}
 function isAndroid(){return /android/i.test(navigator.userAgent||'')}
@@ -28,102 +23,38 @@ function ensureInstallUI(){
   const topbar=document.querySelector('.topbar');
   if(topbar)topbar.insertAdjacentHTML('beforeend','<button class="install-app-btn" id="installAppBtn" type="button" aria-label="Instalar SCaD Residencial"><span class="install-app-icon">⇩</span><span class="install-app-label">Instalar app</span></button>');
   document.body.insertAdjacentHTML('beforeend',`<div class="sheet" id="installAppSheet"><div class="sheet-panel install-app-panel"><button class="sheet-close" id="installAppClose" type="button">×</button><p class="eyebrow">SCaD RESIDENCIAL</p><h2 id="installAppTitle">Instalar app</h2><div id="installAppContent"></div></div></div>`);
-  $('installAppBtn')?.addEventListener('click',openInstall);
-  $('installAppClose')?.addEventListener('click',closeInstall);
-  $('installAppSheet')?.addEventListener('click',e=>{if(e.target===$('installAppSheet'))closeInstall()});
-  updateVisibility();
+  $('installAppBtn')?.addEventListener('click',openInstall);$('installAppClose')?.addEventListener('click',closeInstall);$('installAppSheet')?.addEventListener('click',e=>{if(e.target===$('installAppSheet'))closeInstall()});updateVisibility();
 }
-
-function setInstalledState(){
-  const btn=$('installAppBtn');
-  if(!btn)return;
-  btn.hidden=false;
-  btn.disabled=true;
-  btn.classList.add('installed');
-  const icon=btn.querySelector('.install-app-icon');
-  const label=btn.querySelector('.install-app-label');
-  if(icon)icon.textContent='✓';
-  if(label)label.textContent='App instalada';
-  btn.setAttribute('aria-label','SCaD Residencial instalada');
-}
-
-function setInstallState(){
-  const btn=$('installAppBtn');
-  if(!btn)return;
-  btn.disabled=false;
-  btn.classList.remove('installed');
-  const icon=btn.querySelector('.install-app-icon');
-  const label=btn.querySelector('.install-app-label');
-  if(icon)icon.textContent='⇩';
-  if(label)label.textContent='Instalar app';
-  btn.setAttribute('aria-label','Instalar SCaD Residencial');
-}
-
-function updateVisibility(){
-  const btn=$('installAppBtn');
-  if(!btn)return;
-  if(isStandalone()||wasInstalled()){
-    markInstalled();
-    setInstalledState();
-    return;
-  }
-  setInstallState();
-  // iOS necesita instrucciones manuales. En el resto sólo mostramos el botón
-  // cuando el navegador confirma que la PWA es instalable.
-  btn.hidden=!(isIOS()||!!deferredInstallPrompt);
-}
-
+function setInstalledState(){const btn=$('installAppBtn');if(!btn)return;btn.hidden=false;btn.disabled=true;btn.classList.add('installed');const icon=btn.querySelector('.install-app-icon'),label=btn.querySelector('.install-app-label');if(icon)icon.textContent='✓';if(label)label.textContent='App instalada';btn.setAttribute('aria-label','SCaD Residencial instalada')}
+function setInstallState(){const btn=$('installAppBtn');if(!btn)return;btn.disabled=false;btn.classList.remove('installed');const icon=btn.querySelector('.install-app-icon'),label=btn.querySelector('.install-app-label');if(icon)icon.textContent='⇩';if(label)label.textContent='Instalar app';btn.setAttribute('aria-label','Instalar SCaD Residencial')}
+function updateVisibility(){const btn=$('installAppBtn');if(!btn)return;if(isStandalone()||wasInstalled()){markInstalled();setInstalledState();return}setInstallState();btn.hidden=!(isIOS()||!!deferredInstallPrompt)}
 function closeInstall(){$('installAppSheet')?.classList.remove('open')}
+function renderIOS(){$('installAppTitle').textContent='Instalar en iPhone o iPad';$('installAppContent').innerHTML=`<div class="install-steps"><div><span>1</span><p>Abre SCaD Residencial en <strong>Safari</strong>.</p></div><div><span>2</span><p>Toca <strong>Compartir</strong> <b class="share-glyph">□↑</b>.</p></div><div><span>3</span><p>Selecciona <strong>Agregar a pantalla de inicio</strong>.</p></div><div><span>4</span><p>Confirma con <strong>Agregar</strong>.</p></div></div>`}
+function renderAndroidManual(){$('installAppTitle').textContent='Instalar en Android';$('installAppContent').innerHTML=`<div class="install-steps"><div><span>1</span><p>Abre SCaD Residencial en <strong>Chrome</strong>.</p></div><div><span>2</span><p>Toca el menú <strong>⋮</strong>.</p></div><div><span>3</span><p>Selecciona <strong>Instalar app</strong> o <strong>Agregar a pantalla principal</strong>.</p></div></div>`}
+async function openInstall(){if(isStandalone()||wasInstalled())return;if(deferredInstallPrompt){await promptInstall();return}if(isIOS()){renderIOS();$('installAppSheet')?.classList.add('open');return}if(isAndroid()){renderAndroidManual();$('installAppSheet')?.classList.add('open')}}
+async function promptInstall(){if(!deferredInstallPrompt)return;const prompt=deferredInstallPrompt;deferredInstallPrompt=null;prompt.prompt();try{const choice=await prompt.userChoice;if(choice?.outcome==='accepted')markInstalled()}catch{}closeInstall();updateVisibility()}
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e;updateVisibility()});window.addEventListener('appinstalled',()=>{deferredInstallPrompt=null;markInstalled();closeInstall();updateVisibility()});window.matchMedia?.('(display-mode: standalone)')?.addEventListener?.('change',updateVisibility);
 
-function renderIOS(){
-  $('installAppTitle').textContent='Instalar en iPhone o iPad';
-  $('installAppContent').innerHTML=`<div class="install-steps"><div><span>1</span><p>Abre SCaD Residencial en <strong>Safari</strong>.</p></div><div><span>2</span><p>Toca <strong>Compartir</strong> <b class="share-glyph">□↑</b>.</p></div><div><span>3</span><p>Selecciona <strong>Agregar a pantalla de inicio</strong>.</p></div><div><span>4</span><p>Confirma con <strong>Agregar</strong>.</p></div></div>`;
+const PRIVACY_HTML=`
+<div class="privacy-intro">SCaD Residencial es una plataforma tecnológica diseñada para apoyar la organización de actividades y operaciones relacionadas con comunidades residenciales y facilitar la interacción entre sus usuarios y la administración residencial.<br><br>La presente Política de Privacidad establece los criterios generales aplicables al tratamiento de la información utilizada mediante la plataforma.</div>
+<section><h3>1. Información utilizada</h3><p>Para la operación de SCaD Residencial podrán utilizarse datos de identificación y contacto, como nombre, apellidos, nombre para mostrar, correo electrónico, teléfono, fotografía de perfil, vivienda o referencia residencial e identificadores asociados a la cuenta.</p><p>La utilización de la plataforma también puede generar información relacionada con las funciones habilitadas, como autorizaciones de visitantes, reportes, documentos, programación, grupos, comunicaciones, permisos y otros registros derivados de su operación.</p></section>
+<section><h3>2. Finalidad de la información</h3><p>La información se utiliza para identificar y autenticar usuarios; administrar cuentas, perfiles, roles y permisos; habilitar las funciones correspondientes; apoyar el orden de las actividades y operaciones realizadas dentro de la zona residencial relacionadas con los usuarios de la comunidad; y facilitar la comunicación y atención de servicios vinculados con la administración residencial.</p></section>
+<section><h3>3. Autenticación y acceso</h3><p>SCaD Residencial puede utilizar servicios tecnológicos propios o de terceros, como Google, para autenticar la identidad de los usuarios.</p><p>Cuando se utilicen estos servicios podrán recibirse los datos necesarios para identificar y vincular al usuario con su cuenta en la plataforma.</p></section>
+<section><h3>4. Información de visitantes y terceros</h3><p>Algunas funciones permiten registrar información relacionada con visitantes u otras personas vinculadas con actividades de la comunidad residencial.</p><p>Esta información se trata exclusivamente en relación con la función para la cual fue registrada, como la identificación de una autorización o el registro y seguimiento de una operación de acceso.</p><p>Los datos son incorporados por los usuarios o administradores que utilizan dichas funciones.</p></section>
+<section><h3>5. Fotografías, documentos y evidencias</h3><p>Determinadas funciones pueden permitir incorporar fotografías, documentos, archivos, evidencias, comentarios u otra información relacionada con una operación.</p><p>Estos contenidos se mantienen asociados a la función mediante la cual fueron registrados y su disponibilidad está determinada por las características y permisos de acceso correspondientes dentro de la plataforma.</p></section>
+<section><h3>6. Responsabilidad sobre la información</h3><p>Los datos e información incorporados mediante SCaD Residencial son proporcionados por los propios usuarios o por quienes cuentan con permisos de administración dentro de la aplicación.</p><p>La actualización y corrección de los datos personales corresponde al usuario titular de la información o al administrador de la aplicación responsable de la administración residencial, de acuerdo con las facultades de cada uno.</p><p>SCaD proporciona la infraestructura tecnológica para el tratamiento de esta información y <strong>no modifica por iniciativa propia los datos proporcionados ni determina su contenido.</strong></p></section>
+<section><h3>7. Información sensible o ajena a la finalidad de la plataforma</h3><p>SCaD Residencial <strong>no requiere para su funcionamiento información sensible o de carácter crítico distinta de los datos expresamente necesarios para las funciones disponibles.</strong></p><p>En consecuencia, se espera que los usuarios no utilicen la plataforma para transmitir, almacenar o compartir información sensible o confidencial ajena a dichas finalidades, particularmente aquella cuya exposición pudiera comprometer de manera relevante a personas, bienes, recursos u operaciones.</p><p>La incorporación voluntaria de información distinta de la requerida para el funcionamiento de la plataforma no modifica la naturaleza ni la finalidad de SCaD Residencial y, <strong>si llegara a proporcionarse, será bajo la más estricta responsabilidad de quien la haya incorporado, transmitido o compartido mediante la plataforma.</strong></p></section>
+<section><h3>8. Conservación de la información</h3><p>SCaD Residencial conserva información en función de las necesidades operativas de la plataforma y <strong>no constituye un servicio de archivo, respaldo permanente o conservación indefinida de datos.</strong></p><p>Los registros históricos podrán ser depurados o eliminados <strong>sin previo aviso</strong> cuando hayan perdido utilidad operativa, ya no sean necesarios para el funcionamiento de la plataforma o haya concluido el licenciamiento de uso correspondiente.</p><p>La operación de servicios tecnológicos puede estar sujeta a fallas, interrupciones o pérdida de información. SCaD Residencial no garantiza la conservación permanente o disponibilidad ininterrumpida de los datos almacenados mediante la plataforma.</p></section>
+<section><h3>9. Actualización y corrección de datos personales</h3><p>La actualización y corrección de los datos personales corresponde <strong>al usuario titular de los datos y al administrador de la aplicación responsable de la administración residencial</strong>, dentro del ámbito de acceso y facultades de cada uno.</p><p><strong>SCaD no realiza modificaciones de datos personales por cuenta de los usuarios o de la administración residencial.</strong></p></section>
+<section><h3>10. Actualizaciones de la Política de Privacidad</h3><p>La presente Política podrá actualizarse para reflejar cambios en las funciones de SCaD Residencial o en el tratamiento de la información.</p><p>La versión vigente estará disponible para consulta desde la plataforma.</p></section>
+<section><h3>11. Dudas y comentarios</h3><p>Para dudas o comentarios relacionados con esta Política de Privacidad o con el tratamiento de información en SCaD Residencial, puede utilizarse el correo de contacto: <a href="mailto:logcontrol@scad.mx">logcontrol@scad.mx</a></p></section>`;
+function ensurePrivacyUI(){
+  if($('privacySheet'))return;
+  document.body.insertAdjacentHTML('beforeend',`<div class="sheet privacy-sheet" id="privacySheet"><div class="sheet-panel privacy-panel"><button class="sheet-close" id="privacyClose" type="button" aria-label="Cerrar">×</button><p class="eyebrow">SCaD RESIDENCIAL</p><h2>Política de Privacidad</h2><p class="privacy-date">Última actualización: agosto de 2026</p><div class="privacy-content">${PRIVACY_HTML}</div><div class="privacy-footer"><button class="primary-btn" id="privacyAccept" type="button">Cerrar</button></div></div></div>`);
+  const link=[...document.querySelectorAll('.app-footer a')].find(a=>/privacidad/i.test(a.textContent||''));
+  if(link){link.href='#';link.addEventListener('click',e=>{e.preventDefault();$('privacySheet')?.classList.add('open')})}
+  $('privacyClose')?.addEventListener('click',closePrivacy);$('privacyAccept')?.addEventListener('click',closePrivacy);$('privacySheet')?.addEventListener('click',e=>{if(e.target===$('privacySheet'))closePrivacy()});
 }
+function closePrivacy(){$('privacySheet')?.classList.remove('open')}
 
-function renderAndroidManual(){
-  $('installAppTitle').textContent='Instalar en Android';
-  $('installAppContent').innerHTML=`<div class="install-steps"><div><span>1</span><p>Abre SCaD Residencial en <strong>Chrome</strong>.</p></div><div><span>2</span><p>Toca el menú <strong>⋮</strong>.</p></div><div><span>3</span><p>Selecciona <strong>Instalar app</strong> o <strong>Agregar a pantalla principal</strong>.</p></div></div>`;
-}
-
-async function openInstall(){
-  if(isStandalone()||wasInstalled())return;
-  if(deferredInstallPrompt){await promptInstall();return}
-  if(isIOS()){
-    renderIOS();
-    $('installAppSheet')?.classList.add('open');
-    return;
-  }
-  if(isAndroid()){
-    renderAndroidManual();
-    $('installAppSheet')?.classList.add('open');
-  }
-}
-
-async function promptInstall(){
-  if(!deferredInstallPrompt)return;
-  const prompt=deferredInstallPrompt;
-  deferredInstallPrompt=null;
-  prompt.prompt();
-  try{
-    const choice=await prompt.userChoice;
-    if(choice?.outcome==='accepted')markInstalled();
-  }catch{}
-  closeInstall();
-  updateVisibility();
-}
-
-window.addEventListener('beforeinstallprompt',e=>{
-  e.preventDefault();
-  deferredInstallPrompt=e;
-  updateVisibility();
-});
-window.addEventListener('appinstalled',()=>{
-  deferredInstallPrompt=null;
-  markInstalled();
-  closeInstall();
-  updateVisibility();
-});
-window.matchMedia?.('(display-mode: standalone)')?.addEventListener?.('change',updateVisibility);
-
-ensureHead();
-ensureInstallUI();
+ensureHead();ensureInstallUI();ensurePrivacyUI();
