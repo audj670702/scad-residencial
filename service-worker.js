@@ -1,4 +1,4 @@
-const CACHE='scad-residencial-v64';
+const CACHE='scad-residencial-v65';
 const ASSETS=['./','./index.html','./styles.css','./groups.css','./powered-footer.css','./mobile-form.css','./app.js','./groups.js','./documents.js','./resident-documents.js','./programming.js','./resident-programming.js','./visitors.js','./session-control.js','./control-access.js','./admin-permissions.js','./reports.js','./admin-reports.js','./install-app.js','./messaging.js','./messaging.css','./manifest.json','./assets/logo-scad-residencial.png','./assets/scad-powered-logo.png','./assets/mensaje-enviado.mp3','./assets/mensaje-pendiente.mp3'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
