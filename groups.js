@@ -43,3 +43,4 @@ $('groupForm').addEventListener('submit',async e=>{e.preventDefault();const payl
 $('groupUserSearch').addEventListener('input',renderUserResults);$('openGroupsBtn').addEventListener('click',loadGroups);$('groupsBack').addEventListener('click',()=>showOnly('adminView'));$('newGroupBtn').addEventListener('click',newGroup);$('groupClose').addEventListener('click',()=>$('groupSheet').classList.remove('open'));
 import('./documents.js');
 import('./resident-documents.js');
+import('./messaging.js');
