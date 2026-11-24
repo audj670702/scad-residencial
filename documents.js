@@ -29,7 +29,7 @@ function inject(){
   $('docAudienceType').onchange=renderAudience;
   $('docFile').onchange=e=>{selectedFile=e.target.files?.[0]||null;renderFile()};
   $('docForm').onsubmit=saveDoc;
-  document.querySelector('.app-footer span').textContent='v0.28';
+  document.getElementById('appVersion').textContent='v0.67';
 }
 
 function audienceText(d){
