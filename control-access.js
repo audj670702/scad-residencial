@@ -13,8 +13,8 @@ let currentValidation=null,insideItems=[],historyItems=[];
 
 const css=document.createElement('link');css.rel='stylesheet';css.href='control-access.css';document.head.appendChild(css);
 const esc=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
-async function getFn(n){const r=await client.functions.get(n);return r.json()}
-async function postFn(n,p){const r=await client.functions.post(n,{headers:{'Content-Type':'application/json'},params:new URLSearchParams(),body:JSON.stringify(p)});return r.json()}
+async function getFn(n){syncAuthTokens();const r=await client.functions.get(n);return r.json()}
+async function postFn(n,p){syncAuthTokens();const r=await client.functions.post(n,{headers:{'Content-Type':'application/json'},params:new URLSearchParams(),body:JSON.stringify(p)});return r.json()}
 function fmt(v){if(!v)return'—';const d=new Date(v);if(Number.isNaN(d.getTime()))return'—';return new Intl.DateTimeFormat('es-MX',{dateStyle:'medium',timeStyle:'short'}).format(d)}
 function commentsHtml(list){const a=Array.isArray(list)?list:[];if(!a.length)return'<div class="cacc-meta"><span><strong>Comentarios:</strong> Sin comentarios registrados.</span></div>';return `<div class="cacc-meta"><strong>Comentarios</strong>${a.map(c=>`<div style="margin-top:8px;padding-top:8px;border-top:1px solid #e2e8ef"><span>${esc(c.comentario)}</span><small style="display:block;color:#6d7b8b;margin-top:3px">${esc(c.momento||'Comentario')} · ${esc(fmt(c.fechaRegistro))}</small></div>`).join('')}</div>`}
 function commentBox(aid,momento){return `<div class="cacc-meta"><label style="display:block;font-weight:700;margin-bottom:6px">Agregar comentario</label><textarea data-cacc-comment-input="${esc(aid)}" maxlength="600" style="width:100%;min-height:74px;box-sizing:border-box;border:1px solid #d7e0e8;border-radius:12px;padding:10px;font:inherit"></textarea><button class="secondary-action" type="button" data-cacc-comment="${esc(aid)}" data-cacc-moment="${esc(momento)}" style="margin-top:8px">Guardar comentario</button></div>`}
@@ -30,24 +30,29 @@ function inject(){
  $('appView').insertAdjacentHTML('afterend',`<section id="controlAccessView" hidden><div class="view-head"><button class="back-btn" id="controlAccessBack">‹</button><div><span class="view-kicker">CONTROL DE ACCESOS</span><h1>Control de Accesos</h1></div></div><div class="cacc-tabs"><button class="cacc-tab active" data-cacc-tab="validate" type="button">Validar acceso</button><button class="cacc-tab" data-cacc-tab="inside" type="button">Visitas dentro <b id="controlAccessInsideCount">0</b></button><button class="cacc-tab" data-cacc-tab="history" type="button">Historial <b id="controlAccessHistoryCount">0</b></button></div><section id="controlAccessValidatePanel"><p class="cacc-section-note">El código localiza la preautorización. La identidad debe validarse presencialmente antes de registrar la entrada.</p><form class="cacc-toolbar" id="controlAccessForm"><input class="cacc-code" id="controlAccessCode" maxlength="6" autocomplete="off" placeholder="CÓDIGO" required/><button class="primary-btn" id="controlAccessValidateBtn" type="submit">Validar</button></form><button class="secondary-action" id="controlAccessScan" type="button" style="margin:8px 0">Escanear QR</button><div id="controlAccessCamera" aria-live="polite"></div><div id="controlAccessResult" class="cacc-result" hidden></div></section><section id="controlAccessInsidePanel" hidden><div class="cacc-actions"><button class="secondary-action cacc-refresh" id="controlAccessRefresh" type="button">Actualizar</button></div><div id="controlAccessInsideList" class="cacc-panel"></div></section><section id="controlAccessHistoryPanel" hidden><p class="cacc-section-note">Ciclos cerrados e inconsistencias detectadas en Control de Accesos.</p><div class="cacc-actions"><button class="secondary-action cacc-refresh" id="controlAccessHistoryRefresh" type="button">Actualizar</button></div><div id="controlAccessHistoryList" class="cacc-panel"></div></section></section>`);
  $('controlAccessBack').onclick=close;$('openControlAccess').onclick=open;$('controlAccessForm').onsubmit=validateCode;$('controlAccessScan').onclick=()=>{stopScanner();if($('controlAccessValidateBtn').disabled)return;stopScanner=startVisitScanner($('controlAccessCamera'),code=>{if($('controlAccessView').hidden||$('controlAccessValidatePanel').hidden||$('controlAccessValidateBtn').disabled)return;$('controlAccessCode').value=code;$('controlAccessForm').requestSubmit()})};$('controlAccessRefresh').onclick=loadInside;$('controlAccessHistoryRefresh').onclick=loadInside;
  document.querySelectorAll('[data-cacc-tab]').forEach(b=>b.onclick=()=>setTab(b.dataset.caccTab));
- const foot=document.getElementById('appVersion');if(foot)foot.textContent='v0.72';
+ const foot=document.getElementById('appVersion');if(foot)foot.textContent='v0.73';
+ watchPermission();
  checkPermission();
 }
+let permissionSequence=0;
+function syncAuthTokens(){
+ try{const tokens=JSON.parse(localStorage.getItem(TOKENS_KEY)||'null');if(!tokens)return false;client.auth.setTokens(tokens);return true}catch{return false}
+}
 async function checkPermission(){
- const btn=$('openControlAccess');
- if(!btn)return;
- btn.hidden=true;
+ const btn=$('openControlAccess');if(!btn)return;
+ const seq=++permissionSequence;
+ const apply=allowed=>{if(seq!==permissionSequence)return;btn.hidden=!allowed;btn.classList.toggle('is-authorized',allowed)};
+ apply(false);
  try{
-  if(!(await client.auth.loggedIn()))return;
+  if(document.body.dataset.resSessionValidated!=='1'||!syncAuthTokens()||!(await client.auth.loggedIn()))return;
   const d=await getFn(FN.context);
-  const authorized=d?.ok===true&&d?.authorized===true;
-  btn.hidden=!authorized;
-  btn.classList.toggle('is-authorized',authorized);
- }catch(e){
-  btn.hidden=true;
-  btn.classList.remove('is-authorized');
-  console.warn('SCaD Residencial permiso Control de Accesos:',e)
- }
+  apply(document.body.dataset.resSessionValidated==='1'&&d?.ok===true&&d?.authorized===true);
+ }catch(e){apply(false);console.warn('SCaD Residencial permiso Control de Accesos:',e)}
+}
+function watchPermission(){
+ const observer=new MutationObserver(()=>checkPermission());
+ observer.observe(document.body,{attributes:true,attributeFilter:['data-res-session-validated']});
+ window.addEventListener('storage',e=>{if(e.key===TOKENS_KEY||e.key===null)checkPermission()});
 }
 function close(){stopScanner();$('controlAccessView').hidden=true;$('appView').hidden=false;currentValidation=null}
 async function open(){const btn=$('openControlAccess');if(!btn||btn.hidden)return;$('appView').hidden=true;$('controlAccessView').hidden=false;setTab('validate');$('controlAccessCode').value='';$('controlAccessResult').hidden=true;currentValidation=null;await loadInside()}
