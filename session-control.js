@@ -45,6 +45,7 @@ function showGate(title,text,{actions=false}={}){
   if(!gate)return;
   ['appView','adminView','usersView','groupsView','documentsAdminView','programmingAdminView','residentDocumentsView','residentProgrammingView'].forEach(id=>{const e=$(id);if(e)e.hidden=true});
   gate.hidden=false;
+  const admin=$('adminSection');if(admin)admin.hidden=true;const adminBtn=$('openAdminBtn');if(adminBtn)adminBtn.disabled=true;
   $('sessionGateTitle').textContent=title;
   $('sessionGateText').textContent=text;
   const actionBox=$('sessionGateActions');if(actionBox)actionBox.hidden=!actions;
@@ -53,6 +54,7 @@ function showGate(title,text,{actions=false}={}){
 function allowApp(){
   const gate=ensureGate();if(gate)gate.hidden=true;
   validated=true;
+  const admin=$('adminSection');const adminBtn=$('openAdminBtn');const isAdmin=admin?.dataset.authorized==='1';if(admin)admin.hidden=!isAdmin;if(adminBtn)adminBtn.disabled=!isAdmin;
   const app=$('appView');if(app)app.hidden=false;
 }
 
