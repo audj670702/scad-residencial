@@ -21,7 +21,7 @@ function markInstalled(){try{localStorage.setItem(INSTALLED_KEY,'1')}catch{}}
 function ensureInstallUI(){
   if($('installAppBtn'))return;
   const topbar=document.querySelector('.generic-nav');
-  if(topbar)topbar.insertAdjacentHTML('beforeend','<button class="install-app-btn" id="installAppBtn" type="button" aria-label="Instalar SCaD Residencial"><span class="install-app-icon">⇩</span><span class="install-app-label">Instalar app</span></button>');
+  if(topbar)(document.getElementById('accountMenuBtn')||topbar).insertAdjacentHTML(document.getElementById('accountMenuBtn')?'beforebegin':'beforeend','<button class="install-app-btn" id="installAppBtn" type="button" aria-label="Instalar SCaD Residencial"><span class="install-app-icon">⇩</span><span class="install-app-label">Instalar app</span></button>');
   document.body.insertAdjacentHTML('beforeend',`<div class="sheet" id="installAppSheet"><div class="sheet-panel install-app-panel"><button class="sheet-close" id="installAppClose" type="button">×</button><p class="eyebrow">SCaD RESIDENCIAL</p><h2 id="installAppTitle">Instalar app</h2><div id="installAppContent"></div></div></div>`);
   $('installAppBtn')?.addEventListener('click',openInstall);$('installAppClose')?.addEventListener('click',closeInstall);$('installAppSheet')?.addEventListener('click',e=>{if(e.target===$('installAppSheet'))closeInstall()});updateVisibility();
 }

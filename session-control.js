@@ -44,7 +44,7 @@ function showGate(title,text,{actions=false}={}){
   const gate=ensureGate();
   if(!gate)return;
   ['appView','adminView','usersView','groupsView','documentsAdminView','programmingAdminView','residentDocumentsView','residentProgrammingView'].forEach(id=>{const e=$(id);if(e)e.hidden=true});
-  gate.hidden=false;
+  gate.hidden=false;document.body.dataset.resSessionValidated='0';
   const admin=$('adminSection');if(admin)admin.hidden=true;const adminBtn=$('openAdminBtn');if(adminBtn)adminBtn.disabled=true;
   $('sessionGateTitle').textContent=title;
   $('sessionGateText').textContent=text;
@@ -53,7 +53,7 @@ function showGate(title,text,{actions=false}={}){
 
 function allowApp(){
   const gate=ensureGate();if(gate)gate.hidden=true;
-  validated=true;
+  validated=true;document.body.dataset.resSessionValidated='1';
   const admin=$('adminSection');const adminBtn=$('openAdminBtn');const isAdmin=admin?.dataset.authorized==='1';if(admin)admin.hidden=!isAdmin;if(adminBtn)adminBtn.disabled=!isAdmin;
   const app=$('appView');if(app)app.hidden=false;
 }
@@ -118,6 +118,7 @@ function hookLogout(){
     if(logoutBypass)return;
     e.preventDefault();e.stopImmediatePropagation();
     btn.disabled=true;
+    document.body.dataset.resSessionValidated='0';
     await releaseSession();
     logoutBypass=true;
     btn.disabled=false;
