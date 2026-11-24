@@ -20,7 +20,7 @@ function syncAuthTokens(){
 function getSessionId(){
   let id=localStorage.getItem(INSTANCE_KEY);
   if(id)return id;
-  id=(crypto?.randomUUID?.()||`SES-${Date.now()}-${Math.random().toString(36).slice(2,12)}`).toUpperCase();
+  id=(globalThis.crypto?.randomUUID?.()||`SES-${Date.now()}-${Math.random().toString(36).slice(2,12)}`).toUpperCase();
   localStorage.setItem(INSTANCE_KEY,id);
   return id;
 }
