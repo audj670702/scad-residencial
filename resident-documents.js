@@ -23,7 +23,7 @@ function inject(){
   $('residentDocsBack').onclick=closeResidentDocs;
   const btn=document.querySelector('[data-module="documentacion"]');
   if(btn){btn.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();openResidentDocs()},true)}
-  const footer=document.getElementById('appVersion');if(footer)footer.textContent='v0.70';
+  const footer=document.getElementById('appVersion');if(footer)footer.textContent='v0.71';
 }
 function closeResidentDocs(){$('residentDocumentsView').hidden=true;$('appView').hidden=false}
 function renderDocs(){

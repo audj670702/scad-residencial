@@ -21,7 +21,7 @@ function inject(){
  document.body.insertAdjacentHTML('beforeend',`<div class="sheet" id="residentProgSheet"><div class="sheet-panel rprog-detail"><button class="sheet-close" id="residentProgClose">×</button><p class="eyebrow" id="residentProgCategory"></p><h2 id="residentProgTitle"></h2><div class="rprog-detail-grid"><div><span>Inicio</span><strong id="residentProgStart"></strong></div><div id="residentProgEndBox"><span>Término</span><strong id="residentProgEnd"></strong></div><div id="residentProgLocationBox"><span>Ubicación</span><strong id="residentProgLocation"></strong></div></div><p id="residentProgDescription" class="rprog-description"></p></div></div>`);
  $('residentProgBack').onclick=close;$('residentProgPrev').onclick=()=>{currentMonth.setMonth(currentMonth.getMonth()-1);render()};$('residentProgNext').onclick=()=>{currentMonth.setMonth(currentMonth.getMonth()+1);render()};$('residentProgFilter').onchange=render;$('residentProgClose').onclick=()=>$('residentProgSheet').classList.remove('open');
  const btn=document.querySelector('[data-module="programacion"]');if(btn)btn.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();open()},true);
- const foot=document.getElementById('appVersion');if(foot)foot.textContent='v0.70';
+ const foot=document.getElementById('appVersion');if(foot)foot.textContent='v0.71';
 }
 function close(){$('residentProgrammingView').hidden=true;$('appView').hidden=false}
 function filtered(){const c=$('residentProgFilter')?.value||'';return items.filter(x=>!c||x.categoria===c)}
